@@ -1,9 +1,18 @@
 name: pnv
-description: A package to help with safely storing pnv publicly
-version: 0.0.3
+version: 1.0.0
+description: A package to help with safely storing environment variables publicly
+repository: https://github.com/mrgnhnt96/pnv
+issue_tracker: https://github.com/mrgnhnt96/pnv/issues
+funding:
+    - https://github.com/sponsors/mrgnhnt96
+topics:
+  - env
+  - dotenv
+  - environment-variables
+  - environment
 
 environment:
-    sdk: '>=3.5.0 <4.0.0'
+    sdk: '>=3.2.6 <4.0.0'
 
 dependencies:
     args: ^2.5.0
