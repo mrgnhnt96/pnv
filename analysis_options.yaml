@@ -1,0 +1,5 @@
+analyzer:
+    errors:
+        avoid_print: ignore
+
+include: ../../analysis_options.yaml

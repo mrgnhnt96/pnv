@@ -1,0 +1,10 @@
+base-url: http://localhost:3000
+app:
+    secret: SECRET;cd/BtJJBlxuWEQV08JB9lEOOsm6I92/AUKdZrWBN0v+mS/jgxp5x38G0kkGXG5YRBXTwkH2U
+    key: SECRET;mnu0wfVsqGn1ZHHrdOQW4u70Sz4cG3i/xaBC3czD5bQl/DOae7TB9WyoafVkcet05Bbi
+    token: SECRET;VB8Ys/qUzXctyil3F5Fz5L53rCzqJ/+oCIwhbnMQMeKwH8MQM1QfGLP6lM13LcopdxeRc+Q=
+    run-time:
+        not-secret: not
+        secret: SECRET;eG4sDNo4g7bKvYf/b8rvthWRrc5xVCxk7LciWtsNhvM5h/MTYZi4+6CxZXhuLAzaOIO2yr2H/2/K77Y=
+        key: SECRET;E+0lMZELYONGKJdpR9TCR//FdorVekgD6qUQ8SdzbAPg30kZneHtkxPtJTGRC2DjRiiXaUfUwkc=
+        token: SECRET;+ufTj/oOAFLTRilB3zOqKpAVKI4lcdjYjYPNblpUXti29qWF2cnKg686+ufTj/oOAFLTRilB3zOqKg==
