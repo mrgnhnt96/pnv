@@ -72,10 +72,8 @@ pnv create-key
 
 This command will generate a new encryption key that can be used for encrypting and decrypting secrets.
 
-<div style="border-left: 4px solid #f44336; background-color: #ffebee; padding: 4px 12px; margin: 20px 0; border-radius: 5px;">
-  <div style="font-weight: bold; color: black; margin-bottom: 5px; font-size: 1.2em;">⚠️ CAUTION</div>
-  <p style="color: black;">Keep this key secure and do not share it publicly. Losing the key will make it impossible to decrypt your secrets.</p>
-</div>
+> [!WARNING]
+> Keep this key secure and do not share it publicly. Losing the key will make it impossible to decrypt your secrets.
 
 ### Encrypting a Secret
 
@@ -91,16 +89,14 @@ This will output the encrypted version of your secret. Make sure to store the ke
 SECRET;DrQgp57CPCGY9b/0e2po3AYHIP/Svv+JbYc0+g60IKeewjwhmPW/9HtqaNw=
 ```
 
-<div style="border-left: 4px solid #25c2a0; background-color: #e0ece7; padding: 15px; margin: 20px 0; border-radius: 5px;">
-  <div style="font-weight: bold; color: black; margin-bottom: 5px; font-size: 1.2em;">ℹ️ Tip</div>
-  <p style="color: black;">Avoid word splitting by using double quotes, e.g. "a value with spaces"</p>
-</div>
-
-If the value is too long or hard to manage, try copying the value and using `pbpaste` directly in the command:
+> [!TIP]
+> Avoid word splitting by using double quotes, e.g. "a value with spaces"
 >
-```bash
-pnv encrypt --key <key-value> "$(pbpaste)"
-```
+> If the value is too long or hard to manage, try copying the value and using `pbpaste` directly in the command:
+>
+> ```bash
+> pnv encrypt --key <key-value> "$(pbpaste)"
+> ```
 
 ### Decrypting a Secret
 
