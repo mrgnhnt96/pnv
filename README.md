@@ -94,11 +94,14 @@ SECRET;DrQgp57CPCGY9b/0e2po3AYHIP/Svv+JbYc0+g60IKeewjwhmPW/9HtqaNw=
 <div style="border-left: 4px solid #25c2a0; background-color: #e0ece7; padding: 15px; margin: 20px 0; border-radius: 5px;">
   <div style="font-weight: bold; color: black; margin-bottom: 5px; font-size: 1.2em;">ℹ️ Tip</div>
   <p style="color: black;">Avoid word splitting by using double quotes, e.g. "a value with spaces"</p>
-  <p style="color: black;">If the value is too long to long or hard to manage, try copying the value and using `pbpaste` directly in the command</p>
-    <pre style="background-color: #f6f8fa; padding: 10px; border-radius: 5px; color: #333; font-family: monospace;">
-pnv encrypt --key &lt;key-value&gt; "$(pbpaste)"
-  </pre>
 </div>
+
+> **Tip**
+> If the value is too long or hard to manage, try copying the value and using `pbpaste` directly in the command:
+>
+> ```bash
+> pnv encrypt --key <key-value> "$(pbpaste)"
+> ```
 
 ### Decrypting a Secret
 
