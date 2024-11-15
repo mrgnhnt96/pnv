@@ -96,12 +96,11 @@ SECRET;DrQgp57CPCGY9b/0e2po3AYHIP/Svv+JbYc0+g60IKeewjwhmPW/9HtqaNw=
   <p style="color: black;">Avoid word splitting by using double quotes, e.g. "a value with spaces"</p>
 </div>
 
-> **Tip**
-> If the value is too long or hard to manage, try copying the value and using `pbpaste` directly in the command:
+If the value is too long or hard to manage, try copying the value and using `pbpaste` directly in the command:
 >
-> ```bash
-> pnv encrypt --key <key-value> "$(pbpaste)"
-> ```
+```bash
+pnv encrypt --key <key-value> "$(pbpaste)"
+```
 
 ### Decrypting a Secret
 
