@@ -61,7 +61,13 @@ class ToDartDefineCommand extends Command<int> {
       defines.add('$key=$value');
     }
 
-    print('-D${defines.join(',')}');
+    final buffer = StringBuffer();
+
+    for (final define in defines) {
+      buffer.write('-D$define ');
+    }
+
+    print(buffer);
 
     return 0;
   }
