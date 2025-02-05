@@ -134,10 +134,10 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
         if (config == null) {
           keyHash = this.keyHash;
         } else {
-          if (flavor case final String flavor) {
+          if (config.flavorsFor(flavor) case final Set<String> flavors) {
             final fileFlavor = flavorFrom(file.path);
 
-            if (fileFlavor != flavor) {
+            if (!flavors.contains(fileFlavor)) {
               final relative = p.relative(
                 file.path,
                 from: fs.currentDirectory.path,
@@ -169,6 +169,11 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
   }
 
   String flavorFrom(String path) {
+    if (p.basenameWithoutExtension(path) case final name
+        when !name.contains('.')) {
+      return name;
+    }
+
     final ext = p.extension(path, 2);
     final sanitized =
         ext.replaceAll(RegExp(r'\.ya?ml'), '').replaceAll(RegExp(r'^\.'), '');
