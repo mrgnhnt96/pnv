@@ -91,12 +91,11 @@ class InitCommand extends Command<int>
       existingFlavors.add(flavor);
     }
 
-    final config = PnvConfig(
-      storage: path,
-      flavors: {
-        for (final flavor in existingFlavors) flavor: [flavor],
-      },
-    );
+    final config = PnvConfig(storage: path);
+
+    for (final flavor in existingFlavors) {
+      config.addFlavor(flavor);
+    }
 
     if (!saveConfig(config)) {
       logger.err('Failed to save config');
