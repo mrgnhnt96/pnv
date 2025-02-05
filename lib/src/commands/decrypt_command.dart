@@ -4,7 +4,10 @@ import 'package:pnv/src/commands/cryptic_command.dart';
 import 'package:pnv/src/handlers/decrypt_handler.dart';
 
 class DecryptCommand extends CrypticCommand with DecryptHandler {
-  DecryptCommand({required super.fs});
+  DecryptCommand({
+    required super.fs,
+    required super.logger,
+  });
 
   @override
   String get name => 'decrypt';

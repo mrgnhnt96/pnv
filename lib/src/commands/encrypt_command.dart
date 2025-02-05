@@ -7,7 +7,10 @@ import 'package:pnv/utils/constants.dart';
 import 'package:pointycastle/export.dart';
 
 class EncryptCommand extends CrypticCommand {
-  EncryptCommand({required super.fs});
+  EncryptCommand({
+    required super.fs,
+    required super.logger,
+  });
 
   @override
   String get name => 'encrypt';

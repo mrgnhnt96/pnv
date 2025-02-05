@@ -13,16 +13,11 @@ class PnvRunner extends CommandRunner<int> {
     required FileSystem fs,
     required Logger logger,
   }) : super('secrets', 'Encrypt and decrypt secrets.') {
-    addCommand(EncryptCommand(fs: fs));
-    addCommand(DecryptCommand(fs: fs));
-    addCommand(GenerateEnvCommand(fs: fs));
+    addCommand(EncryptCommand(logger: logger, fs: fs));
+    addCommand(DecryptCommand(logger: logger, fs: fs));
+    addCommand(GenerateEnvCommand(logger: logger, fs: fs));
     addCommand(InitCommand(logger: logger, fs: fs));
-    addCommand(
-      CreateCommand(
-        logger: logger,
-        fs: fs,
-      ),
-    );
+    addCommand(CreateCommand(logger: logger, fs: fs));
     addCommand(ToDartDefineCommand(fs: fs));
   }
 

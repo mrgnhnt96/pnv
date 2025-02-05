@@ -34,7 +34,13 @@ mixin PnvConfigMixin on PubspecMixin, PlatformMixin {
       return null;
     }
 
-    final content = fs.file(path).readAsStringSync();
+    final file = fs.file(path);
+
+    if (!file.existsSync()) {
+      return null;
+    }
+
+    final content = file.readAsStringSync();
 
     if (content.trim().isEmpty) {
       return null;

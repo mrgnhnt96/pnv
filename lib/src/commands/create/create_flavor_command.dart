@@ -55,7 +55,7 @@ class CreateFlavorCommand extends Command<int>
 
     while (newFlavor.trim().isEmpty) {
       newFlavor = logger
-          .prompt('Whats the name of the new ${green.wrap('Flavor')}')
+          .prompt('Whats the name of the new ${green.wrap('Flavor')}?')
           .trim();
 
       if (config.flavors[newFlavor] != null) {

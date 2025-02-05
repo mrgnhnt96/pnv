@@ -5,11 +5,17 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:crypto/crypto.dart';
 import 'package:file/file.dart';
+import 'package:mason_logger/mason_logger.dart';
 import 'package:pnv/src/crypto/validate_secret_key.dart';
+import 'package:pnv/src/mixins/platform_mixin.dart';
+import 'package:pnv/src/mixins/pnv_config_mixin.dart';
+import 'package:pnv/src/mixins/pubspec_mixin.dart';
 
-abstract class CrypticCommand extends Command<int> {
+abstract class CrypticCommand extends Command<int>
+    with PlatformMixin, PubspecMixin, PnvConfigMixin {
   CrypticCommand({
     required this.fs,
+    required this.logger,
   }) {
     argParser
       ..addOption(
@@ -21,14 +27,23 @@ abstract class CrypticCommand extends Command<int> {
         'key-file',
         abbr: 'f',
         help: 'The file containing the secret key to use to $name.',
+      )
+      ..addOption(
+        'flavor',
+        help: 'The flavor to use to $name.',
       );
   }
 
+  @override
   final FileSystem fs;
+
+  @override
+  final Logger logger;
 
   @override
   ArgResults get argResults => super.argResults!;
 
+  String? get flavor => argResults['flavor'] as String?;
   String? get key => argResults['key'] as String?;
   String? get keyFile => argResults['key-file'] as String?;
   List<String> get valuesToCrypt {
@@ -46,7 +61,18 @@ abstract class CrypticCommand extends Command<int> {
       return key;
     }
 
-    if (keyFile case final keyFile?) {
+    String? flavorKeyFile;
+    if (flavor case final String flavor) {
+      if (storageDir case final dir?) {
+        final keyFile = dir.childFile('$flavor.key');
+
+        if (keyFile.existsSync()) {
+          flavorKeyFile = keyFile.path;
+        }
+      }
+    }
+
+    if (keyFile ?? flavorKeyFile case final keyFile?) {
       final file = fs.file(keyFile);
 
       if (!file.existsSync()) {

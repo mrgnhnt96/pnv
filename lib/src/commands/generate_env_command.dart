@@ -4,7 +4,10 @@ import 'package:pnv/src/handlers/decrypt_handler.dart';
 import 'package:yaml/yaml.dart';
 
 class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
-  GenerateEnvCommand({required super.fs}) {
+  GenerateEnvCommand({
+    required super.fs,
+    required super.logger,
+  }) {
     argParser
       ..addOption(
         'input',
