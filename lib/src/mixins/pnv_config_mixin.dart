@@ -9,10 +9,27 @@ import 'package:pnv/src/models/pnv_config.dart';
 mixin PnvConfigMixin on PubspecMixin, PlatformMixin {
   Logger get logger;
 
+  String? _pnvConfigPath;
   String? get pnvConfigPath {
-    final pubspecPath = this.pubspecPath;
+    if (_pnvConfigPath case final String path) {
+      return path;
+    }
 
-    if (pubspecPath == null) {
+    final root = pubspecPath;
+
+    if (root == null) {
+      Directory? dir;
+      while (dir == null || dir.path != dir.parent.path) {
+        dir ??= fs.currentDirectory;
+        final config = dir.childFile('.pnvrc');
+
+        if (config.existsSync()) {
+          return _pnvConfigPath = config.path;
+        }
+
+        dir = dir.parent;
+      }
+
       return null;
     }
 
@@ -20,14 +37,15 @@ mixin PnvConfigMixin on PubspecMixin, PlatformMixin {
 
     final pnvConfig = dir.childFile('.pnvrc');
 
-    if (!pnvConfig.existsSync()) {
-      pnvConfig.create();
-    }
-
-    return pnvConfig.path;
+    return _pnvConfigPath = pnvConfig.path;
   }
 
+  PnvConfig? _config;
   PnvConfig? pnvConfig() {
+    if (_config case final PnvConfig config) {
+      return config;
+    }
+
     final path = pnvConfigPath;
 
     if (path == null) {
@@ -49,7 +67,7 @@ mixin PnvConfigMixin on PubspecMixin, PlatformMixin {
     final json = jsonDecode(content);
 
     return switch (json) {
-      Map<String, dynamic>() => PnvConfig.fromJson(json),
+      Map<String, dynamic>() => _config = PnvConfig.fromJson(json),
       _ => null,
     };
   }
@@ -64,8 +82,14 @@ mixin PnvConfigMixin on PubspecMixin, PlatformMixin {
     try {
       const encoder = JsonEncoder.withIndent('  ');
 
+      final file = fs.file(path);
+
+      if (!file.existsSync()) {
+        file.createSync(recursive: true);
+      }
+
       final json = encoder.convert(config.toJson());
-      fs.file(path).writeAsStringSync(json);
+      file.writeAsStringSync(json);
 
       return true;
     } catch (e) {
@@ -76,13 +100,18 @@ mixin PnvConfigMixin on PubspecMixin, PlatformMixin {
     }
   }
 
+  Directory? _storage;
   Directory? get storageDir {
+    if (_storage case final Directory dir) {
+      return dir;
+    }
+
     final config = pnvConfig();
 
     if (config == null) {
       return null;
     }
 
-    return fs.directory(replaceHome(config.storage));
+    return _storage = fs.directory(replaceHome(config.storage));
   }
 }

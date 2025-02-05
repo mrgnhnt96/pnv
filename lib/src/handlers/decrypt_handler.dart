@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:pnv/utils/constants.dart';
@@ -14,8 +13,7 @@ mixin DecryptHandler {
     try {
       return _decrypt(value, keyHash);
     } catch (e) {
-      print('Failed to decrypt value. Do you have the correct key?');
-      exit(1);
+      throw Exception('Failed to decrypt value. Do you have the correct key?');
     }
   }
 
