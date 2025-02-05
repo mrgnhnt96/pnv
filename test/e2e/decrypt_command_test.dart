@@ -76,7 +76,7 @@ void main() {
           String? value;
           when(() => logger.write(any())).thenAnswer((e) {
             value = switch (e.positionalArguments.first) {
-              final String v when value == null => value = v,
+              final String v when value == null => value = v.trim(),
               _ => value,
             };
           });

@@ -25,7 +25,7 @@ class DecryptCommand extends CrypticCommand with DecryptHandler {
     for (final value in valuesToCrypt) {
       final result = decrypt(value, keyHash);
 
-      logger.write(result);
+      logger.write('$result\n');
     }
 
     return 0;
