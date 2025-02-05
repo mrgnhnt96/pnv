@@ -5,6 +5,7 @@ import 'package:pnv/src/commands/create_command.dart';
 import 'package:pnv/src/commands/decrypt_command.dart';
 import 'package:pnv/src/commands/encrypt_command.dart';
 import 'package:pnv/src/commands/generate_env_command.dart';
+import 'package:pnv/src/commands/init_command.dart';
 import 'package:pnv/src/commands/to_dart_define_command.dart';
 
 class PnvRunner extends CommandRunner<int> {
@@ -15,6 +16,7 @@ class PnvRunner extends CommandRunner<int> {
     addCommand(EncryptCommand(fs: fs));
     addCommand(DecryptCommand(fs: fs));
     addCommand(GenerateEnvCommand(fs: fs));
+    addCommand(InitCommand(logger: logger, fs: fs));
     addCommand(
       CreateCommand(
         logger: logger,
@@ -34,7 +36,9 @@ class PnvRunner extends CommandRunner<int> {
 
       final argResults = parse(allArgs);
 
-      return await runCommand(argResults) ?? 0;
+      final code = await runCommand(argResults) ?? 0;
+
+      return code;
     } on UsageException catch (e) {
       print(e);
 

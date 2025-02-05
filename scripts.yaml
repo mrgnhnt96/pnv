@@ -1,3 +1,16 @@
+build_runner:
+  (aliases):
+    - br
+  build:
+    (aliases): b
+    (command): dart run build_runner build --delete-conflicting-outputs
+  clean:
+    (aliases): c
+    (command): dart run build_runner clean
+  watch:
+    (aliases): w
+    (command): dart run build_runner watch --delete-conflicting-outputs
+
 lint:
   - (+) dart format . --set-exit-if-changed
   - (+) dart analyze --fatal-infos --fatal-warnings

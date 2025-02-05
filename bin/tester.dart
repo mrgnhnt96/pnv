@@ -1,11 +1,5 @@
-import 'pnv.dart' as secrets;
+import 'pnv.dart' as pnv;
 
-void main() async {
-  secrets.main([
-    'env',
-    '-f',
-    'tmp.key',
-    '-i',
-    'example/local.yaml',
-  ]);
+void main() {
+  pnv.main(['init']);
 }

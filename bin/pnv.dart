@@ -1,11 +1,16 @@
 import 'dart:io';
 
+import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:pnv/src/pnv_runner.dart';
 
-void main(List<String> topLevelArgs) async {
-  const fs = LocalFileSystem();
+Future<void> main(
+  List<String> topLevelArgs, {
+  Logger? providedLogger,
+  FileSystem? providedFs,
+}) async {
+  final fs = providedFs ?? const LocalFileSystem();
 
   final args = [...topLevelArgs];
 
@@ -18,9 +23,10 @@ void main(List<String> topLevelArgs) async {
     args.remove('--quiet');
   }
 
-  final logger = Logger(
-    level: level,
-  );
+  final logger = providedLogger ??
+      Logger(
+        level: level,
+      );
 
   final runner = PnvRunner(
     fs: fs,
@@ -29,5 +35,5 @@ void main(List<String> topLevelArgs) async {
 
   final result = await runner.run(args);
 
-  exit(result);
+  exitCode = result;
 }
