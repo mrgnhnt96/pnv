@@ -25,7 +25,7 @@ class DecryptCommand extends CrypticCommand with DecryptHandler {
     for (final value in valuesToCrypt) {
       final result = decrypt(value, keyHash);
 
-      print(result);
+      logger.write(result);
     }
 
     return 0;

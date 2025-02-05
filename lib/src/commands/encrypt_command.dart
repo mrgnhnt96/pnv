@@ -49,6 +49,6 @@ class EncryptCommand extends CrypticCommand {
 
     final encoded = base64.encode([...cipher.mac, ...iv, ...encrypted]);
 
-    print('SECRET;$encoded');
+    logger.write('SECRET;$encoded');
   }
 }
