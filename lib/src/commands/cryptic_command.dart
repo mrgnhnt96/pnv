@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
@@ -68,6 +67,9 @@ abstract class CrypticCommand extends Command<int>
 
         if (keyFile.existsSync()) {
           flavorKeyFile = keyFile.path;
+        } else {
+          logger.err('No key file found for flavor $flavor.');
+          throw ArgumentError('No key file found for flavor $flavor.');
         }
       }
     }
@@ -76,8 +78,8 @@ abstract class CrypticCommand extends Command<int>
       final file = fs.file(keyFile);
 
       if (!file.existsSync()) {
-        print('❌ Key file "$keyFile" does not exist or was not readable.');
-        exit(1);
+        logger.err('❌ Key file "$keyFile" does not exist or was not readable.');
+        throw ArgumentError('Key file does not exist or was not readable.');
       }
 
       return file.readAsStringSync().trim();
