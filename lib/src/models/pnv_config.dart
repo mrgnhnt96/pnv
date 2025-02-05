@@ -5,10 +5,10 @@ part 'pnv_config.g.dart';
 
 @JsonSerializable()
 class PnvConfig extends Equatable {
-  const PnvConfig({
+  PnvConfig({
     required this.storage,
-    required this.flavors,
-  });
+    Map<String, List<String>>? flavors,
+  }) : flavors = flavors ?? {};
 
   factory PnvConfig.fromJson(Map<String, dynamic> json) =>
       _$PnvConfigFromJson(json);
@@ -22,6 +22,6 @@ class PnvConfig extends Equatable {
   List<Object?> get props => _$props;
 
   void addFlavor(String newFlavor) {
-    flavors[newFlavor] = [newFlavor];
+    flavors[newFlavor] = [];
   }
 }

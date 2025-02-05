@@ -21,7 +21,7 @@ extension _$PnvConfigAutoequal on PnvConfig {
 
 PnvConfig _$PnvConfigFromJson(Map json) => PnvConfig(
       storage: json['storage'] as String,
-      flavors: (json['flavors'] as Map).map(
+      flavors: (json['flavors'] as Map?)?.map(
         (k, e) => MapEntry(
             k as String, (e as List<dynamic>).map((e) => e as String).toList()),
       ),
