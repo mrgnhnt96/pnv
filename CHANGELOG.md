@@ -1,5 +1,22 @@
 # Change Log
 
+## 1.2.0 | 2.5.25
+
+### Features
+
+- Create a `.pnvrc` config file to handle multiple flavors and storage location to easily manage secrets
+  - Add `pnv init` command to create a `.pnvrc` file
+  - Point to the directory where the encryption keys are stored and the flavors will be imported automatically
+- Encrypt, decrypt, and generate env files with the new `--flavor` flag
+- Create a new flavor with the `create flavor` command
+  - Creates a new encryption key and flavor within the configuration file
+
+### Deprecations
+
+These deprecations will be removed in the next major release
+
+- `create-key` command has been deprecated in favor of the `create key` command
+
 ## 1.1.0 | 11.29.24
 
 ### Enhancements

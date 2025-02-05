@@ -21,7 +21,7 @@ publish:
     - "{$lint}"
     - |
       # Sync changelog and pubspec versions
-      version=$(grep -m 1 "# " CHANGELOG.md | awk '{print $2}')
+      version=$(grep -m 1 "## " CHANGELOG.md | awk '{print $2}')
 
       echo "Updating pubspec.yaml version to $version"
       sed -i '' "s|^version: .*|version: $version|g" "pubspec.yaml"

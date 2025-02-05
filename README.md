@@ -1,4 +1,5 @@
 <!-- markdownlint-disable MD033 -->
+
 # pnv (Public Environment)
 
 **pnv** is a Dart package designed for developers to easily encrypt and decrypt secrets, manage environment files, and generate Dart Define arguments. The goal of pnv is to simplify the process of handling environment secrets and configuration securely and use those secrets in your Dart or Flutter projects.
@@ -14,10 +15,10 @@
 
 ### Locally
 
-To use pnv, add it to your Dart project's `pubspec.yaml`:
+To use pnv, add it to your Dart project's dev dependencies within the `pubspec.yaml`:
 
 ```bash
-dart pub add pnv # automatically adds the latest non-conflicting version
+dart pub add pnv --dev # automatically adds the latest non-conflicting version
 ```
 
 You can run it using the following command:
@@ -48,7 +49,9 @@ pnv <command> [arguments]
 
 ### Commands
 
-- **`create-key`**: Create a new encryption key for use with pnv.
+- **`init`**: Initialize a pnv configuration file.
+- **`create key`**: Create a new encryption key to use with pnv.
+- **`create flavor`**: Create a new flavor associated with a new encryption key.
 - **`encrypt`**: Encrypt a secret using a previously generated key.
 - **`decrypt`**: Decrypt a secret using the correct key.
 - **`generate-env`**: Generate a `.env` file from a `.yaml` file.
@@ -62,25 +65,73 @@ pnv help <command>
 
 ## Quick Start
 
-### Creating an Encryption Key
+### Creating a Configuration File
 
-To create an encryption key:
+To create a pnv configuration file:
 
 ```bash
-pnv create-key
+pnv init
 ```
 
-This command will generate a new encryption key that can be used for encrypting and decrypting secrets.
+This command will prompt you for the directory you'd like to store the encryption keys. By default, they will be saved `~/.<project-name>`. These settings will be saved in a `.pnvrc` file in the root of your project (next to your `pubspec.yaml`).
+
+### Create a Flavor
+
+To create a new flavor:
+
+```bash
+pnv create flavor --name <flavor_name>
+```
+
+This will generate a new flavor with an encryption key. The encryption key will be saved in the directory specified during the initialization process.
+
+```plaintext
+~
+└── .<project-name>
+    └── <flavor_name>.key
+```
 
 > [!WARNING]
 > Keep this key secure and do not share it publicly. Losing the key will make it impossible to decrypt your secrets.
+
+The configuration file will be updated with the new flavor:
+
+```json
+{
+  "storage": "~/.<project-name>",
+  "flavors": {
+    "<flavor_name>": []
+  }
+}
+```
+
+The flavor name will be used as a reference to encrypt/decrypt secrets. You can create multiple flavors to manage different sets of secrets. Each flavor will have its own encryption key.
+
+> [!TIP]
+> Notice the empty array `[]` in the flavor object. This array can be used to store additional extensions that are associated with the flavor.
+>
+> For Example:
+>
+> ```json
+> {
+>   "storage": "~/.pnv",
+>   "flavors": {
+>     "ci": ["test"]
+> }
+> ```
+>
+> This configuration will allow you to use the `ci` flavor to encrypt/decrypt secrets for files that end with `*.test.yaml`
+>
+> [!WARNING]
+>
+> All flavors and supported extensions must be unique. An error will be thrown if a flavor or extension is already in use.
 
 ### Encrypting a Secret
 
 To encrypt a secret value:
 
 ```bash
-pnv encrypt --key <key_value> "my_secret"
+pnv encrypt "my_secret" --flavor <flavor_name>
 ```
 
 This will output the encrypted version of your secret. Make sure to store the key securely. This is what your secret would look like
@@ -103,7 +154,7 @@ SECRET;DrQgp57CPCGY9b/0e2po3AYHIP/Svv+JbYc0+g60IKeewjwhmPW/9HtqaNw=
 To decrypt a secret value:
 
 ```bash
-pnv decrypt --key <key_value> SECRET;<encoded_data>
+pnv decrypt "SECRET;<encoded_data>" --flavor <flavor_name>
 ```
 
 If the key is correct, the decrypted secret will be displayed. If the key is incorrect, an error message will be shown.
@@ -136,7 +187,7 @@ You can organize your encrypted secrets within a YAML file for better structure 
 ### Yaml File
 
 ```yaml
-# env_files/local.yaml
+# env_files/app.local.yaml
 secret: SECRET;<encoded_data>
 
 api:
@@ -149,7 +200,7 @@ api:
 You can then run the `generate-env` command to create an `.env` file:
 
 ```bash
-pnv generate-env --key <key_value> --input env_files/local.yaml --output env_files/outputs/
+pnv generate-env --directory env_files --output env_files/outputs
 ```
 
 This would generate the following environment variable:
@@ -164,6 +215,57 @@ API_KEY=<decoded_data>
 ```
 
 When the `generate-env` command is called, pnv will combine the keys to create flat environment variable names, which makes them compatible with most CI/CD tools and other environment management systems.
+
+> [!TIP]
+>
+> If you would like to generate the env file for a specific flavor, you can use the `--flavor` flag:
+>
+> ```bash
+> pnv generate-env --directory env_files --output env_files/outputs --flavor ci
+> ```
+>
+> All file extensions associated with the flavor will be generated into `.env` files.
+
+### Multiple Environments
+
+In a typical project, you may have multiple environments, such as `development`, `staging`, and `production`. You can create a separate YAML file for each environment and generate the `.env` files for each environment.
+
+```plaintext
+.
+└── env_files
+    ├── app.development.yaml
+    ├── app.staging.yaml
+    └── app.production.yaml
+```
+
+Each of these files can contain the same structure but with different values. You can then generate the `.env` files for each environment:
+
+```bash
+# Generate all environments
+pnv generate-env --directory env_files
+
+# Generate development environment
+pnv generate-env --directory env_files --flavor development
+
+# Generate staging environment
+pnv generate-env --directory env_files --flavor staging
+
+# Generate production environment
+pnv generate-env --directory env_files --flavor production
+```
+
+Mentioned above, you can configure the `.pnvrc` file to associate different extensions with different flavors.
+
+```json
+{
+  "storage": "~/.pnv",
+  "flavors": {
+    "development": ["dev"],
+    "staging": ["stg"],
+    "production": ["prod", "ci"]
+  }
+}
+```
 
 ## Encryption Details
 
