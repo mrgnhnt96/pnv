@@ -1,10 +1,8 @@
-import 'dart:convert';
-
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
-import 'package:pnv/src/crypto/random_bytes.dart';
+import 'package:pnv/src/mixins/crypto_mixin.dart';
 
-class CreateKeyCommand extends Command<int> {
+class CreateKeyCommand extends Command<int> with CryptoMixin {
   CreateKeyCommand({
     required this.logger,
   });
@@ -19,11 +17,7 @@ class CreateKeyCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final bytes = randomBytes(12);
-
-    final string = base64UrlEncode(bytes);
-
-    logger.write(string);
+    logger.write(newKey);
 
     return 0;
   }

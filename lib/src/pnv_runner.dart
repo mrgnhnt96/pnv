@@ -20,6 +20,7 @@ class PnvRunner extends CommandRunner<int> {
     addCommand(
       CreateCommand(
         logger: logger,
+        fs: fs,
       ),
     );
     addCommand(ToDartDefineCommand(fs: fs));

@@ -8,7 +8,7 @@ import 'package:pnv/src/mixins/pubspec_mixin.dart';
 import 'package:pnv/src/models/pnv_config.dart';
 
 class InitCommand extends Command<int>
-    with PubspecMixin, PnvConfigMixin, PlatformMixin {
+    with PubspecMixin, PlatformMixin, PnvConfigMixin {
   InitCommand({
     required this.logger,
     required this.fs,

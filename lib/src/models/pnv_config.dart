@@ -20,4 +20,8 @@ class PnvConfig extends Equatable {
 
   @override
   List<Object?> get props => _$props;
+
+  void addFlavor(String newFlavor) {
+    flavors[newFlavor] = [newFlavor];
+  }
 }

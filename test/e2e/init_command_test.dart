@@ -9,7 +9,7 @@ import 'package:pnv/src/commands/init_command.dart';
 import 'package:pnv/src/models/pnv_config.dart';
 import 'package:test/test.dart';
 
-import '../bin/pnv.dart' as pnv;
+import '../../bin/pnv.dart' as pnv;
 
 void main() {
   group(InitCommand, () {
@@ -52,24 +52,29 @@ name: bananas
         ).thenReturn('~/secrets/.pnv');
       });
 
+      PnvConfig getConfig() {
+        final file = fs.file('.pnvrc');
+        expect(file.existsSync(), isTrue);
+
+        final content = file.readAsStringSync();
+
+        return PnvConfig.fromJson(
+          jsonDecode(content) as Map<String, dynamic>,
+        );
+      }
+
       test('and creates a brand new config', () async {
         await run();
 
         final dir = fs.directory('$home/secrets/.pnv');
         expect(dir.existsSync(), isTrue);
 
-        final file = fs.file('.pnvrc');
-        final content = file.readAsStringSync();
-        final config = PnvConfig.fromJson(
-          jsonDecode(content) as Map<String, dynamic>,
-        );
-
         const expected = PnvConfig(
           storage: '~/secrets/.pnv',
           flavors: {},
         );
 
-        expect(config, expected);
+        expect(getConfig(), expected);
         expect(exitCode, 0);
       });
 
@@ -83,12 +88,6 @@ name: bananas
 
         expect(dir.existsSync(), isTrue);
 
-        final file = fs.file('.pnvrc');
-        final content = file.readAsStringSync();
-        final config = PnvConfig.fromJson(
-          jsonDecode(content) as Map<String, dynamic>,
-        );
-
         const expected = PnvConfig(
           storage: '~/secrets/.pnv',
           flavors: {
@@ -96,7 +95,7 @@ name: bananas
           },
         );
 
-        expect(config, expected);
+        expect(getConfig(), expected);
         expect(exitCode, 0);
       });
     });

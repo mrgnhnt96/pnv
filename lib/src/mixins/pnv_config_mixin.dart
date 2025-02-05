@@ -1,10 +1,12 @@
 import 'dart:convert';
 
+import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
+import 'package:pnv/src/mixins/platform_mixin.dart';
 import 'package:pnv/src/mixins/pubspec_mixin.dart';
 import 'package:pnv/src/models/pnv_config.dart';
 
-mixin PnvConfigMixin on PubspecMixin {
+mixin PnvConfigMixin on PubspecMixin, PlatformMixin {
   Logger get logger;
 
   String? get pnvConfigPath {
@@ -66,5 +68,15 @@ mixin PnvConfigMixin on PubspecMixin {
         ..err('$e');
       return false;
     }
+  }
+
+  Directory? get storageDir {
+    final config = pnvConfig();
+
+    if (config == null) {
+      return null;
+    }
+
+    return fs.directory(replaceHome(config.storage));
   }
 }
