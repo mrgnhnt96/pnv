@@ -1,3 +1,4 @@
+import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:pnv/src/commands/cryptic_command.dart';
 import 'package:pnv/src/handlers/decrypt_handler.dart';
@@ -10,11 +11,19 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
   }) {
     argParser
       ..addOption(
-        'input',
+        'file',
         abbr: 'i',
+        aliases: ['input'],
         help: 'The input .yaml file to generate the .env file from.',
         valueHelp: 'infra.local.yaml',
-        mandatory: true,
+      )
+      ..addOption(
+        'directory',
+        abbr: 'd',
+        aliases: ['dir'],
+        help: 'The input directory containing the .yaml files to '
+            'generate the .env file from.',
+        valueHelp: 'infra.local.yaml',
       )
       ..addOption(
         'output',
@@ -34,14 +43,41 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
   @override
   List<String> get aliases => ['gen-env', 'env-gen', 'env'];
 
-  String get input {
-    final input = argResults['input'] as String;
+  String? get input {
+    final input = argResults['file'] as String?;
 
-    if (!input.endsWith('.yaml')) {
+    if (input == null) {
+      return null;
+    }
+
+    if (!fs.file(input).existsSync()) {
+      throw ArgumentError(
+        'Input file "$input" does not exist.',
+      );
+    }
+
+    final ext = p.extension(input);
+    if (!(ext == '.yaml' || ext == '.yml')) {
       throw ArgumentError('Input file "$input" must be a .yaml file.');
     }
 
     return input;
+  }
+
+  String? get directory {
+    final directory = argResults['directory'] as String?;
+
+    if (directory == null) {
+      return null;
+    }
+
+    if (!fs.directory(directory).existsSync()) {
+      throw ArgumentError(
+        'Input directory "$directory" does not exist.',
+      );
+    }
+
+    return directory;
   }
 
   String get output {
@@ -66,22 +102,97 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
 
   Future<int> _run() async {
     final input = this.input;
+    final dir = directory;
     final output = this.output;
 
-    final keyHash = this.keyHash;
+    if (input case final String input) {
+      List<int>? keyHash;
 
-    final file = fs.file(input);
+      try {
+        keyHash = this.keyHash;
+      } catch (_) {}
+
+      if (keyHash == null) {
+        final flavor = flavorFrom(input);
+        final secret = secretFor(flavor: flavor);
+        keyHash = keyHashFor(secret);
+      }
+
+      await parseFile(
+        input,
+        output: output,
+        keyHash: keyHash,
+      );
+    }
+
+    if (dir case final String dir) {
+      final config = pnvConfig();
+      final files = fs.directory(dir).listSync().whereType<File>();
+
+      for (final file in files) {
+        List<int>? keyHash;
+        if (config == null) {
+          keyHash = this.keyHash;
+        } else {
+          if (flavor case final String flavor) {
+            final fileFlavor = flavorFrom(file.path);
+
+            if (fileFlavor != flavor) {
+              final relative = p.relative(
+                file.path,
+                from: fs.currentDirectory.path,
+              );
+              logger.detail(
+                'Skipping file "$relative", '
+                'flavor "$fileFlavor" does not match "$flavor".',
+              );
+              continue;
+            }
+
+            keyHash = this.keyHash;
+          } else {
+            final flavor = flavorFrom(file.path);
+            final secret = secretFor(flavor: flavor);
+            keyHash = keyHashFor(secret);
+          }
+        }
+
+        await parseFile(
+          file.path,
+          output: output,
+          keyHash: keyHash,
+        );
+      }
+    }
+
+    return 0;
+  }
+
+  String flavorFrom(String path) {
+    final ext = p.extension(path, 2);
+    final sanitized =
+        ext.replaceAll(RegExp(r'\.ya?ml'), '').replaceAll(RegExp(r'^\.'), '');
+
+    return sanitized;
+  }
+
+  Future<bool> parseFile(
+    String path, {
+    required String output,
+    required List<int> keyHash,
+  }) async {
+    final file = fs.file(path);
 
     if (!file.existsSync()) {
-      print('❌ Input file "$input" does not exist or was not readable.');
-      return 1;
+      logger.err('❌ Input file "$path" does not exist.');
+      return false;
     }
 
     final content = file.readAsStringSync();
 
     final yaml = loadYaml(content);
 
-    final inputFileName = p.basenameWithoutExtension(input);
+    final inputFileName = p.basenameWithoutExtension(path);
 
     final outputFileName = '$inputFileName.env';
 
@@ -100,14 +211,14 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
     }
 
     if (yaml == null) {
-      print('👀 Input file "$input" is empty.');
+      logger.warn('👀 Input file "$input" is empty.');
       await outputFile.writeAsString('');
-      return 0;
+      return true;
     }
 
     if (yaml is! YamlMap) {
-      print('❌ Input file "$input" is not a valid .yaml file.');
-      return 1;
+      logger.err('❌ Input file "$input" is not a valid .yaml file.');
+      return false;
     }
 
     final env = StringBuffer();
@@ -167,8 +278,8 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
 
     await outputFile.writeAsString(env.toString());
 
-    print('✅ Generated .env file at "${p.relative(outputFile.path)}".');
+    logger.info('✅ Generated .env file at "${p.relative(outputFile.path)}".');
 
-    return 0;
+    return true;
   }
 }
