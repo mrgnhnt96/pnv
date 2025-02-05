@@ -91,7 +91,7 @@ name: bananas
         final expected = PnvConfig(
           storage: '~/secrets/.pnv',
           flavors: const {
-            'local': ['local'],
+            'local': [],
           },
         );
 
