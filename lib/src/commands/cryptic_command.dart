@@ -55,38 +55,11 @@ abstract class CrypticCommand extends Command<int>
     return values;
   }
 
-  String get secret {
-    if (key case final key? when key.trim().isNotEmpty) {
-      return key;
-    }
-
-    String? flavorKeyFile;
-    if (flavor case final String flavor) {
-      if (storageDir case final dir?) {
-        final keyFile = dir.childFile('$flavor.key');
-
-        if (keyFile.existsSync()) {
-          flavorKeyFile = keyFile.path;
-        } else {
-          logger.err('No key file found for flavor $flavor.');
-          throw ArgumentError('No key file found for flavor $flavor.');
-        }
-      }
-    }
-
-    if (keyFile ?? flavorKeyFile case final keyFile?) {
-      final file = fs.file(keyFile);
-
-      if (!file.existsSync()) {
-        logger.err('❌ Key file "$keyFile" does not exist or was not readable.');
-        throw ArgumentError('Key file does not exist or was not readable.');
-      }
-
-      return file.readAsStringSync().trim();
-    }
-
-    throw ArgumentError('No key or key file provided.');
-  }
+  String get secret => secretFor(
+        key: key,
+        keyFile: keyFile,
+        flavor: flavor,
+      );
 
   List<int> get secretBytes {
     final bytes = base64.decode(secret);
@@ -98,5 +71,76 @@ abstract class CrypticCommand extends Command<int>
     return bytes;
   }
 
-  List<int> get keyHash => sha256.convert(secretBytes).bytes;
+  List<int> get keyHash => keyHashFor(secret);
+
+  List<int> keyHashFor(String secret) {
+    final bytes = base64.decode(secret);
+
+    if (!validateSecretKey(bytes)) {
+      throw ArgumentError('Key is not expected length.');
+    }
+
+    return sha256.convert(bytes).bytes;
+  }
+
+  String secretFor({
+    String? key,
+    String? keyFile,
+    String? flavor,
+  }) {
+    if (key case final String key when key.trim().isNotEmpty) {
+      return key;
+    }
+
+    String? flavorKeyFile;
+    if (flavor case final String flavor when flavor.trim().isNotEmpty) {
+      if (storageDir case final dir?) {
+        final keyFile = dir.childFile('$flavor.key');
+
+        if (keyFile.existsSync()) {
+          flavorKeyFile = keyFile.path;
+        } else {
+          final config = pnvConfig();
+
+          if (config == null) {
+            throw ArgumentError(
+              'Failed to find pnv config. Try running '
+              '`pnv init` and try again.',
+            );
+          }
+
+          for (final MapEntry(:key, value: extensions)
+              in config.flavors.entries) {
+            if (extensions.contains(flavor)) {
+              final keyFile = dir.childFile('$key.key');
+
+              if (keyFile.existsSync()) {
+                flavorKeyFile = keyFile.path;
+                break;
+              }
+            }
+          }
+        }
+      } else {
+        throw ArgumentError(
+          'Failed to find storage directory. Try running '
+          '`pnv init` and try again.',
+        );
+      }
+    }
+
+    if (keyFile ?? flavorKeyFile case final String keyFile) {
+      final file = fs.file(keyFile);
+
+      if (!file.existsSync()) {
+        throw ArgumentError(
+          '❌ Key file "$keyFile" does not exist or was not readable.',
+        );
+      }
+
+      return file.readAsStringSync().trim();
+    }
+
+    throw ArgumentError('Missing key, key file, or flavor.');
+  }
 }
