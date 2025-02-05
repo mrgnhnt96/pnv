@@ -10,8 +10,25 @@ class PnvConfig extends Equatable {
     Map<String, List<String>>? flavors,
   }) : flavors = flavors ?? {};
 
-  factory PnvConfig.fromJson(Map<String, dynamic> json) =>
-      _$PnvConfigFromJson(json);
+  factory PnvConfig.fromJson(Map<String, dynamic> json) {
+    final config = _$PnvConfigFromJson(json);
+
+    if (config.hasConflicts()) {
+      throw ArgumentError(
+        'Flavors have conflicts. Every flavor and extension '
+        'must be unique.',
+      );
+    }
+
+    return config;
+  }
+
+  bool hasConflicts() {
+    final all = flavors.entries.expand((e) => [e.key, ...e.value]).toList();
+    final unique = all.toSet();
+
+    return all.length != unique.length;
+  }
 
   final String storage;
   final Map<String, List<String>> flavors;
@@ -23,5 +40,21 @@ class PnvConfig extends Equatable {
 
   void addFlavor(String newFlavor) {
     flavors[newFlavor] = [];
+  }
+
+  Set<String>? flavorsFor(String? flavor) {
+    if (flavor == null) return null;
+
+    if (flavors[flavor] case final List<String> extensions) {
+      return {flavor, ...extensions};
+    }
+
+    for (final MapEntry(:key, value: extensions) in flavors.entries) {
+      if (extensions.contains(flavor)) {
+        return {key, ...extensions};
+      }
+    }
+
+    return null;
   }
 }
