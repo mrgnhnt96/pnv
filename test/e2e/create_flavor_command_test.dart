@@ -39,12 +39,6 @@ void main() {
 
     group('runs successfully', () {
       setUp(() {
-        fs.currentDirectory.childFile('pubspec.yaml')
-          ..createSync()
-          ..writeAsStringSync('''
-name: apples
-''');
-
         fs.directory(p.join(home, '.pnv')).createSync(recursive: true);
       });
 
@@ -75,10 +69,10 @@ name: apples
 
         await run();
 
-        const expected = PnvConfig(
+        final expected = PnvConfig(
           storage: '~/.pnv',
-          flavors: {
-            'loz': ['loz'],
+          flavors: const {
+            'loz': [],
           },
         );
 
@@ -91,17 +85,17 @@ name: apples
       test('and adds new flavor when flavors exist', () async {
         createConfig(
           {
-            'oot': ['oot'],
+            'oot': [],
           },
         );
 
         await run();
 
-        const expected = PnvConfig(
+        final expected = PnvConfig(
           storage: '~/.pnv',
-          flavors: {
-            'oot': ['oot'],
-            'loz': ['loz'],
+          flavors: const {
+            'oot': [],
+            'loz': [],
           },
         );
 

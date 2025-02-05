@@ -45,9 +45,9 @@ void main() {
             ..createSync()
             ..writeAsStringSync(
               jsonEncode(
-                const PnvConfig(
+                PnvConfig(
                   storage: '~/.pnv',
-                  flavors: {
+                  flavors: const {
                     'loz': ['loz'],
                   },
                 ),
@@ -67,14 +67,6 @@ void main() {
     }
 
     group('runs successfully', () {
-      setUp(() {
-        fs.currentDirectory.childFile('pubspec.yaml')
-          ..createSync()
-          ..writeAsStringSync('''
-name: apples
-''');
-      });
-
       for (final type in _KeyType.values) {
         test('with ${type.description}', () async {
           String? value;

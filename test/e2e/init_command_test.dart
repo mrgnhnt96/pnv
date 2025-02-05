@@ -69,9 +69,9 @@ name: bananas
         final dir = fs.directory('$home/secrets/.pnv');
         expect(dir.existsSync(), isTrue);
 
-        const expected = PnvConfig(
+        final expected = PnvConfig(
           storage: '~/secrets/.pnv',
-          flavors: {},
+          flavors: const {},
         );
 
         expect(getConfig(), expected);
@@ -88,9 +88,9 @@ name: bananas
 
         expect(dir.existsSync(), isTrue);
 
-        const expected = PnvConfig(
+        final expected = PnvConfig(
           storage: '~/secrets/.pnv',
-          flavors: {
+          flavors: const {
             'local': ['local'],
           },
         );
