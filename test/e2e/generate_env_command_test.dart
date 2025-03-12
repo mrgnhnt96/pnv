@@ -6,7 +6,7 @@ import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
-import 'package:pnv/src/commands/generate_env_command.dart';
+import 'package:pnv/src/commands/generate/generate_env_command.dart';
 import 'package:pnv/src/models/pnv_config.dart';
 import 'package:test/test.dart';
 

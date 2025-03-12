@@ -35,13 +35,10 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
   }
 
   @override
-  String get name => 'generate-env';
+  String get name => 'env';
 
   @override
   String get description => 'Generate a .env file from a .yaml file.';
-
-  @override
-  List<String> get aliases => ['gen-env', 'env-gen', 'env'];
 
   String? get input {
     final input = argResults['file'] as String?;

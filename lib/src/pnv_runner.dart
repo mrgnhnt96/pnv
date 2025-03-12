@@ -4,7 +4,8 @@ import 'package:mason_logger/mason_logger.dart';
 import 'package:pnv/src/commands/create_command.dart';
 import 'package:pnv/src/commands/decrypt_command.dart';
 import 'package:pnv/src/commands/encrypt_command.dart';
-import 'package:pnv/src/commands/generate_env_command.dart';
+import 'package:pnv/src/commands/generate/deprecated_generate_env_command.dart';
+import 'package:pnv/src/commands/generate/generate_command.dart';
 import 'package:pnv/src/commands/init_command.dart';
 import 'package:pnv/src/commands/to_dart_define_command.dart';
 
@@ -15,7 +16,8 @@ class PnvRunner extends CommandRunner<int> {
   }) : super('secrets', 'Encrypt and decrypt secrets.') {
     addCommand(EncryptCommand(logger: logger, fs: fs));
     addCommand(DecryptCommand(logger: logger, fs: fs));
-    addCommand(GenerateEnvCommand(logger: logger, fs: fs));
+    addCommand(GenerateCommand(logger: logger, fs: fs));
+    addCommand(DeprecatedGenerateEnvCommand(logger: logger, fs: fs));
     addCommand(InitCommand(logger: logger, fs: fs));
     addCommand(CreateCommand(logger: logger, fs: fs));
     addCommand(ToDartDefineCommand(fs: fs));
