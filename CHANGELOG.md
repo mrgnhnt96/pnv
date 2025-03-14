@@ -1,5 +1,20 @@
 # Change Log
 
+## 1.3.0 | 3.13.25
+
+### Features
+
+- Add `generate dart` command to generate Dart files from env files
+
+### Fixes
+
+- Fix issue where a flavor that was included in the list of additional extensions would cause an error to be thrown
+
+### Deprecations
+
+- `generate-env` command has been deprecated in favor of the `generate env` command
+  - Functionality remains the same
+
 ## 1.2.0 | 2.5.25
 
 ### Features
