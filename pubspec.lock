@@ -127,7 +127,7 @@ packages:
     source: hosted
     version: "8.9.3"
   change_case:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: change_case
       sha256: e41ef3df58521194ef8d7649928954805aeb08061917cf658322305e61568003
