@@ -2,9 +2,9 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:pnv/src/commands/cryptic_command.dart';
 import 'package:pnv/src/handlers/decrypt_handler.dart';
-import 'package:yaml/yaml.dart';
+import 'package:pnv/src/mixins/file_mixin.dart';
 
-class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
+class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
   GenerateEnvCommand({
     required super.fs,
     required super.logger,
@@ -40,6 +40,7 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
   @override
   String get description => 'Generate a .env file from a .yaml file.';
 
+  @override
   String? get input {
     final input = argResults['file'] as String?;
 
@@ -92,7 +93,7 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
     try {
       return _run();
     } catch (e) {
-      print('Failed to generate .env file. $e');
+      logger.err('Failed to generate .env file. $e');
       return 1;
     }
   }
@@ -115,7 +116,7 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
         keyHash = keyHashFor(secret);
       }
 
-      await parseFile(
+      await generateEnvFromYaml(
         input,
         output: output,
         keyHash: keyHash,
@@ -154,7 +155,7 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
           }
         }
 
-        await parseFile(
+        await generateEnvFromYaml(
           file.path,
           output: output,
           keyHash: keyHash,
@@ -163,125 +164,5 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler {
     }
 
     return 0;
-  }
-
-  String flavorFrom(String path) {
-    if (p.basenameWithoutExtension(path) case final name
-        when !name.contains('.')) {
-      return name;
-    }
-
-    final ext = p.extension(path, 2);
-    final sanitized =
-        ext.replaceAll(RegExp(r'\.ya?ml'), '').replaceAll(RegExp(r'^\.'), '');
-
-    return sanitized;
-  }
-
-  Future<bool> parseFile(
-    String path, {
-    required String output,
-    required List<int> keyHash,
-  }) async {
-    final file = fs.file(path);
-
-    if (!file.existsSync()) {
-      logger.err('❌ Input file "$path" does not exist.');
-      return false;
-    }
-
-    final content = file.readAsStringSync();
-
-    final yaml = loadYaml(content);
-
-    final inputFileName = p.basenameWithoutExtension(path);
-
-    final outputFileName = '$inputFileName.env';
-
-    final outputFile = fs.file(
-      fs.path.join(
-        fs.currentDirectory.path,
-        output,
-        outputFileName,
-      ),
-    );
-
-    final outDir = outputFile.parent;
-
-    if (!await outDir.exists()) {
-      await outDir.create(recursive: true);
-    }
-
-    if (yaml == null) {
-      logger.warn('👀 Input file "$input" is empty.');
-      await outputFile.writeAsString('');
-      return true;
-    }
-
-    if (yaml is! YamlMap) {
-      logger.err('❌ Input file "$input" is not a valid .yaml file.');
-      return false;
-    }
-
-    final env = StringBuffer();
-
-    void write(Iterable<String> prefix, String key, dynamic value) {
-      var prefixString = '';
-      if (prefix.isNotEmpty) {
-        prefixString = prefix.join('_');
-        prefixString += '_';
-      }
-
-      final envVarKey = '$prefixString$key'.toUpperCase().replaceAll('-', '_');
-
-      env.writeln('$envVarKey=$value');
-    }
-
-    void traverse(
-      Map<String, dynamic> data, {
-      Iterable<String> prefix = const [],
-    }) {
-      final location = prefix.isNotEmpty ? '.${prefix.join('.')}' : '.';
-
-      env.writeln('# $location');
-      for (final key in data.keys) {
-        final value = data[key];
-
-        void decryptValue(String value) {
-          var plainText = value;
-
-          if (value.startsWith('SECRET;')) {
-            plainText = decrypt(value, keyHash);
-          }
-
-          write(prefix, key, '"$plainText"');
-        }
-
-        final _ = switch (value) {
-          String() => decryptValue(value),
-          int() => write(prefix, key, value),
-          double() => write(prefix, key, value),
-          bool() => write(prefix, key, value),
-          Map<String, dynamic>() =>
-            traverse(value, prefix: prefix.followedBy([key])),
-          YamlMap() => traverse(
-              Map<String, dynamic>.from(value),
-              prefix: prefix.followedBy([key]),
-            ),
-          Null() => null,
-          _ => throw ArgumentError(
-              'Unsupported value type. ${value.runtimeType} ($value)',
-            ),
-        };
-      }
-    }
-
-    traverse(Map<String, dynamic>.from(yaml.value));
-
-    await outputFile.writeAsString(env.toString());
-
-    logger.info('✅ Generated .env file at "${p.relative(outputFile.path)}".');
-
-    return true;
   }
 }
