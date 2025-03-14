@@ -19,6 +19,7 @@ publish:
   (bail):
   (command):
     - "{$lint}"
+    - sip test -rbc
     - |
       # Sync changelog and pubspec versions
       version=$(grep -m 1 "## " CHANGELOG.md | awk '{print $2}')
