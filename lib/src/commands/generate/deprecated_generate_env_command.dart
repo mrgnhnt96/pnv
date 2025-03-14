@@ -10,6 +10,9 @@ class DeprecatedGenerateEnvCommand extends GenerateEnvCommand {
   String get name => 'generate-env';
 
   @override
+  bool get hidden => true;
+
+  @override
   Future<int> run() {
     logger.warn('This command is deprecated. Use `pnv generate env` instead.');
     return super.run();
