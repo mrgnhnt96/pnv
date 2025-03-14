@@ -1,6 +1,7 @@
 import 'package:args/command_runner.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
+import 'package:pnv/src/commands/generate/generate_dart_command.dart';
 import 'package:pnv/src/commands/generate/generate_env_command.dart';
 
 class GenerateCommand extends Command<int> {
@@ -10,6 +11,12 @@ class GenerateCommand extends Command<int> {
   }) {
     addSubcommand(
       GenerateEnvCommand(
+        logger: logger,
+        fs: fs,
+      ),
+    );
+    addSubcommand(
+      GenerateDartCommand(
         logger: logger,
         fs: fs,
       ),

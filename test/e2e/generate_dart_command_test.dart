@@ -1,38 +1,33 @@
+// ignore_for_file: unnecessary_await_in_return
+
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
-import 'package:pnv/src/commands/generate/generate_env_command.dart';
+import 'package:pnv/src/commands/generate/generate_dart_command.dart';
 import 'package:pnv/src/models/pnv_config.dart';
 import 'package:test/test.dart';
 
 import '../../bin/pnv.dart' as pnv;
 
 void main() {
-  group(GenerateEnvCommand, () {
+  group(GenerateDartCommand, () {
     late Logger logger;
     late FileSystem fs;
-    late String home;
 
-    const secret =
-        'SECRET;lyho8D18bGu/BzQgpoCb3KhTEJk/1jPC+Jpa+Kk5E1dD2R3/77TZJeREe5coaPA9fGxrvwc0IKaAm9w=';
     const decryptedSecret = 'legend-of-zelda';
-    final encryptedDirectory = p.join(p.separator, 'envs');
     final decryptedDirectory = p.join(p.separator, 'dist');
-    final appLozYaml = p.join(encryptedDirectory, 'app.loz.yaml');
+    final dartDirectory = p.join(decryptedDirectory, 'dart');
     final appLozEnv = p.join(decryptedDirectory, 'app.loz.env');
-    final appLocalYaml = p.join(encryptedDirectory, 'app.local.yaml');
     final appLocalEnv = p.join(decryptedDirectory, 'app.local.env');
-    final localYaml = p.join(encryptedDirectory, 'local.yaml');
+    final appDart = p.join(dartDirectory, 'app.dart');
     final localEnv = p.join(decryptedDirectory, 'local.env');
+    final localDart = p.join(dartDirectory, 'local.dart');
 
     setUp(() {
-      home = Platform.environment['HOME']!;
-
       logger = _MockLogger();
       fs = MemoryFileSystem.test();
 
@@ -40,12 +35,10 @@ void main() {
         print(e.positionalArguments.first);
       });
 
-      fs.directory(encryptedDirectory).createSync(recursive: true);
+      fs.directory(decryptedDirectory).createSync(recursive: true);
     });
 
     String prepEnv(_KeyType? type) {
-      const key = 'oI0tNittVqP_nLwY';
-
       void setupFlavor() {
         fs.file('.pnvrc')
           ..createSync()
@@ -59,21 +52,10 @@ void main() {
               ),
             ),
           );
-
-        fs.file('$home/.pnv/local.key')
-          ..createSync(recursive: true)
-          ..writeAsStringSync(key);
       }
 
       String arg;
       switch (type) {
-        case _KeyType.key:
-          arg = '--key=$key';
-        case _KeyType.file:
-          arg = '--key-file=$home/.pnv/local.key';
-          fs.file('$home/.pnv/local.key')
-            ..createSync(recursive: true)
-            ..writeAsStringSync(key);
         case _KeyType.flavor:
           arg = '--flavor=local';
           setupFlavor();
@@ -92,73 +74,46 @@ void main() {
     }
 
     group('runs successfully', () {
-      const expectedContent = '''
-# .
-# .my
-MY_SECRET="$decryptedSecret"
+      const expectedAppContent = '''
+class App {
+  const App._();
+
+  static const mySecret = String.fromEnvironment('MY_SECRET');
+}
 ''';
+      const expectedLocalContent = '''
+class Local {
+  const Local._();
 
-      group('using the file option', () {
-        Future<void> run(_KeyType type) async {
-          final arg = prepEnv(type);
-
-          fs.file(appLocalYaml)
-            ..createSync()
-            ..writeAsStringSync('''
-my:
-  secret: $secret
-''');
-
-          await pnv.main(
-            [
-              'generate',
-              'env',
-              arg,
-              '--output=$decryptedDirectory',
-              '--file=$appLocalYaml',
-            ],
-            providedFs: fs,
-            providedLogger: logger,
-          );
-        }
-
-        for (final type in _KeyType.core) {
-          test('with ${type.description}', () async {
-            final file = fs.file(appLocalEnv);
-            expect(file.existsSync(), isFalse);
-
-            await run(type);
-
-            expect(file.existsSync(), isTrue);
-            expect(file.readAsStringSync(), expectedContent);
-          });
-        }
-      });
+  static const mySecret = String.fromEnvironment('MY_SECRET');
+}
+''';
 
       group('using the directory option', () {
         Future<void> run([_KeyType? type]) async {
           final arg = prepEnv(type);
 
           final file = switch (type) {
-            _KeyType.alias => appLozYaml,
-            _KeyType.noExtension => localYaml,
-            _ => appLocalYaml,
+            _KeyType.alias => appLozEnv,
+            _KeyType.noExtension => localEnv,
+            _ => appLocalEnv,
           };
 
           fs.file(file)
             ..createSync()
             ..writeAsStringSync('''
-my:
-  secret: $secret
+# .
+# .my
+MY_SECRET="$decryptedSecret"
 ''');
 
           await pnv.main(
             [
               'generate',
-              'env',
+              'dart',
               arg,
-              '--output=$decryptedDirectory',
-              '--dir=$encryptedDirectory',
+              '--output=$dartDirectory',
+              '--dir=$decryptedDirectory',
             ],
             providedFs: fs,
             providedLogger: logger,
@@ -167,44 +122,44 @@ my:
 
         for (final type in _KeyType.core) {
           test('with ${type.description}', () async {
-            final file = fs.file(appLocalEnv);
+            final file = fs.file(appDart);
             expect(file.existsSync(), isFalse);
 
             await run(type);
 
             expect(file.existsSync(), isTrue);
-            expect(file.readAsStringSync(), expectedContent);
+            expect(file.readAsStringSync(), expectedAppContent);
           });
         }
 
         test('should parse when no flavor is specified', () async {
-          final file = fs.file(appLocalEnv);
+          final file = fs.file(appDart);
           expect(file.existsSync(), isFalse);
 
           await run();
 
           expect(file.existsSync(), isTrue);
-          expect(file.readAsStringSync(), expectedContent);
+          expect(file.readAsStringSync(), expectedAppContent);
         });
 
         test('should parse when flavor alias is used', () async {
-          final file = fs.file(appLozEnv);
+          final file = fs.file(appDart);
           expect(file.existsSync(), isFalse);
 
           await run(_KeyType.alias);
 
           expect(file.existsSync(), isTrue);
-          expect(file.readAsStringSync(), expectedContent);
+          expect(file.readAsStringSync(), expectedAppContent);
         });
 
         test('should parse when file does not have extension', () async {
-          final file = fs.file(localEnv);
+          final file = fs.file(localDart);
           expect(file.existsSync(), isFalse);
 
           await run(_KeyType.noExtension);
 
           expect(file.existsSync(), isTrue);
-          expect(file.readAsStringSync(), expectedContent);
+          expect(file.readAsStringSync(), expectedLocalContent);
         });
       });
     });
@@ -214,24 +169,18 @@ my:
 class _MockLogger extends Mock implements Logger {}
 
 enum _KeyType {
-  key,
-  file,
   flavor,
   alias,
   noExtension;
 
   String get description {
     return switch (this) {
-      _KeyType.key => '--key',
-      _KeyType.file => '--key-file',
       _KeyType.flavor => '--flavor=local',
       _ => '',
     };
   }
 
   static List<_KeyType> get core => [
-        _KeyType.key,
-        _KeyType.file,
         _KeyType.flavor,
       ];
 }
