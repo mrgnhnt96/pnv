@@ -24,7 +24,12 @@ class PnvConfig extends Equatable {
   }
 
   bool hasConflicts() {
-    final all = flavors.entries.expand((e) => [e.key, ...e.value]).toList();
+    final all = flavors.entries.expand((e) {
+      final values = [...e.value]..remove(e.key);
+
+      return [e.key, ...values];
+    }).toList();
+
     final unique = all.toSet();
 
     return all.length != unique.length;
