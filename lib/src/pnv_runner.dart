@@ -3,6 +3,7 @@ import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:pnv/src/commands/create_command.dart';
 import 'package:pnv/src/commands/decrypt_command.dart';
+import 'package:pnv/src/commands/delete_command.dart';
 import 'package:pnv/src/commands/encrypt_command.dart';
 import 'package:pnv/src/commands/generate/deprecated_generate_env_command.dart';
 import 'package:pnv/src/commands/generate/generate_command.dart';
@@ -21,6 +22,7 @@ class PnvRunner extends CommandRunner<int> {
     addCommand(GenerateCommand(logger: logger, fs: fs));
     addCommand(DeprecatedGenerateEnvCommand(logger: logger, fs: fs));
     addCommand(CreateCommand(logger: logger, flavorHandler: flavorHandler));
+    addCommand(DeleteCommand(logger: logger, flavorHandler: flavorHandler));
     addCommand(ToDartDefineCommand(fs: fs));
     addCommand(
       InitCommand(logger: logger, fs: fs, flavorHandler: flavorHandler),

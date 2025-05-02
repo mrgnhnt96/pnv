@@ -21,6 +21,17 @@ class FlavorHandler
   /// The allowed characters for a flavor name.
   final allowed = RegExp(r'^[a-zA-Z0-9_-]+$');
 
+  List<String> flavors() {
+    final config = pnvConfig();
+
+    if (config == null) {
+      logger.err('No config found. Run `pnv init` first.');
+      throw Exception('No config found. Run `pnv init` first.');
+    }
+
+    return config.flavors.keys.toList();
+  }
+
   bool create(
     String flavor, {
     PnvConfig? config,
@@ -179,6 +190,24 @@ class FlavorHandler
       }
     }
 
+    saveConfig(config);
+  }
+
+  void delete(String flavor) {
+    final config = pnvConfig();
+
+    if (config == null) {
+      logger.err('No config found. Run `pnv init` first.');
+      throw Exception('No config found. Run `pnv init` first.');
+    }
+
+    final file = storageKeyFile(flavor, config);
+
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
+
+    config.flavors.remove(flavor);
     saveConfig(config);
   }
 }
