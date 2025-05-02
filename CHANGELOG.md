@@ -1,12 +1,16 @@
 # Change Log
 
-## 1.4.1 | 5.02.25
+## 1.4.2 | 5.02.25
 
 ### Features
 
 - Add ability to create flavors during the `init` command
 - Create new key when flavor exists within the config but the key does not
 - Add `delete flavor` command to delete a flavor and the key associated with it
+
+### Enhancements
+
+- Add error handling to the `generate env` command when no input or directory is provided
 
 ### Chore
 
