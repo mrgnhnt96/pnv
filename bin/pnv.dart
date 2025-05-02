@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
+import 'package:pnv/src/handlers/flavor_handler.dart';
 import 'package:pnv/src/pnv_runner.dart';
 
 Future<void> main(
@@ -31,6 +32,10 @@ Future<void> main(
   final runner = PnvRunner(
     fs: fs,
     logger: logger,
+    flavorHandler: FlavorHandler(
+      fs: fs,
+      logger: logger,
+    ),
   );
 
   final result = await runner.run(args);

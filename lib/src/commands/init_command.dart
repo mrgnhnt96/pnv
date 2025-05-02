@@ -2,6 +2,7 @@ import 'package:args/command_runner.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
+import 'package:pnv/src/handlers/flavor_handler.dart';
 import 'package:pnv/src/mixins/platform_mixin.dart';
 import 'package:pnv/src/mixins/pnv_config_mixin.dart';
 import 'package:pnv/src/mixins/pubspec_mixin.dart';
@@ -12,12 +13,14 @@ class InitCommand extends Command<int>
   InitCommand({
     required this.logger,
     required this.fs,
+    required this.flavorHandler,
   });
 
   @override
   final Logger logger;
   @override
   final FileSystem fs;
+  final FlavorHandler flavorHandler;
 
   @override
   String get name => 'init';
@@ -43,21 +46,27 @@ class InitCommand extends Command<int>
 
     logger.info('Initializing PNV for ${yellow.wrap(name)}...');
 
-    final pnvConfig = this.pnvConfig();
+    final config = switch (pnvConfig()) {
+      null => await createNewConfig(projectName: name),
+      final config => config,
+    };
 
-    if (pnvConfig == null) {
-      if (await createNewConfig(
-        projectName: name,
-      )
-          case final code) {
-        return code;
-      }
+    if (config == null) {
+      logger.err('Failed to create PNV config');
+      return 1;
+    }
+
+    setupFlavors(config);
+
+    if (!saveConfig(config)) {
+      logger.err('Failed to save config');
+      return 1;
     }
 
     return 0;
   }
 
-  Future<int> createNewConfig({
+  Future<PnvConfig?> createNewConfig({
     required String projectName,
   }) async {
     var path = '';
@@ -71,6 +80,19 @@ class InitCommand extends Command<int>
       if (dir.existsSync() && !fs.isDirectorySync(dir.path)) {
         logger.err('Invalid directory: $path');
         path = '';
+        continue;
+      }
+
+      if (dir.existsSync()) {
+        final confirm = logger.confirm(
+          'The directory $path ${red.wrap('already exists')}. '
+          'Do you still want to use it?',
+        );
+
+        if (!confirm) {
+          path = '';
+          continue;
+        }
       }
     }
 
@@ -79,29 +101,70 @@ class InitCommand extends Command<int>
       dir.createSync(recursive: true);
     }
 
-    final existingFlavors = <String>{};
-    for (final entity in dir.listSync()) {
-      if (entity is! File) continue;
-
-      final fileName = entity.uri.pathSegments.last;
-
-      if (p.extension(fileName) != '.key') continue;
-
-      final flavor = p.basenameWithoutExtension(fileName);
-      existingFlavors.add(flavor);
-    }
-
     final config = PnvConfig(storage: path);
 
-    for (final flavor in existingFlavors) {
-      config.addFlavor(flavor);
+    saveConfig(config);
+
+    return config;
+  }
+
+  void setupFlavors(PnvConfig config) {
+    final dir = storageDir(config);
+
+    final foundFlavors = <String>{};
+    if (dir.existsSync()) {
+      final files = dir.listSync().whereType<File>();
+      logger.detail('Found ${files.length} existing flavors');
+
+      for (final entity in files) {
+        logger.detail('Found flavor: ${entity.uri.path}');
+        final fileName = entity.uri.pathSegments.last;
+
+        if (p.extension(fileName) != keyExtension) continue;
+
+        final flavor = p.basenameWithoutExtension(fileName);
+        foundFlavors.add(flavor);
+
+        if (!config.flavors.containsKey(flavor)) {
+          config.addFlavor(flavor);
+        }
+      }
+    } else {
+      logger.detail('Storage directory not found');
     }
 
-    if (!saveConfig(config)) {
-      logger.err('Failed to save config');
-      return 1;
+    if (foundFlavors.isNotEmpty) {
+      logger.info('Found flavors:');
+      for (final flavor in foundFlavors) {
+        logger.info('  ${cyan.wrap(flavor)}');
+      }
     }
 
-    return 0;
+    for (final flavor in config.flavors.keys) {
+      if (!foundFlavors.contains(flavor)) {
+        final created = flavorHandler.createIfNotExists(
+          flavor,
+          config: config,
+          prompt: true,
+        );
+
+        if (!created) {
+          continue;
+        }
+
+        foundFlavors.add(flavor);
+      }
+    }
+
+    final createFlavors = switch (foundFlavors.isEmpty) {
+      true => true,
+      false => logger.confirm(
+          'Do you want to add more flavors?',
+        ),
+    };
+
+    if (createFlavors) {
+      flavorHandler.createMany(config: config);
+    }
   }
 }
