@@ -103,6 +103,13 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
     final dir = directory;
     final output = this.output;
 
+    if (input == null && dir == null) {
+      logger
+        ..err('Failed to generate .env file(s)')
+        ..err('Either --file or --directory must be provided.');
+      return 1;
+    }
+
     if (input case final String input) {
       List<int>? keyHash;
 
