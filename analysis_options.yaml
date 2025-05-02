@@ -15,8 +15,8 @@ analyzer:
     prefer_void_to_null: ignore
 
   exclude:
-    - '**/*.g.dart'
-    - '**/example/example.dart'
+    - "**/*.g.dart"
+    - "**/example/example.dart"
     - test/.test_coverage.dart
     - lib/generated_plugin_registrant.dart
 
@@ -112,7 +112,6 @@ linter:
     - one_member_abstracts
     - only_throw_errors
     - overridden_fields
-    - package_api_docs
     - package_names
     - package_prefixed_library_names
     - parameter_assignments

@@ -73,18 +73,11 @@ void main() {
     group('runs successfully', () {
       for (final type in _KeyType.values) {
         test('with ${type.description}', () async {
-          String? value;
-          when(() => logger.write(any())).thenAnswer((e) {
-            value = switch (e.positionalArguments.first) {
-              final String v when value == null => value = v.trim(),
-              _ => value,
-            };
-          });
-
           await run(type);
 
-          expect(value, isNotNull);
-          expect(value, 'legend-of-zelda');
+          final captured = verify(() => logger.write(captureAny()));
+          // ignore: avoid_dynamic_calls
+          expect(captured.captured.single.trim(), 'legend-of-zelda');
           expect(exitCode, 0);
         });
       }

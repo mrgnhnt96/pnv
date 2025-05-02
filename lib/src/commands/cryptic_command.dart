@@ -92,17 +92,16 @@ abstract class CrypticCommand extends Command<int>
       return key;
     }
 
-    final config = pnvConfig();
-
-    if (config == null) {
-      throw ArgumentError(
-        'Failed to find pnv config. Try running '
-        '`pnv init` and try again.',
-      );
-    }
-
     String? flavorKeyFile;
     if (flavor case final String flavor when flavor.trim().isNotEmpty) {
+      final config = pnvConfig();
+      if (config == null) {
+        throw ArgumentError(
+          'Failed to find pnv config. Try running '
+          '`pnv init` and try again.',
+        );
+      }
+
       final keyFile = storageKeyFile(flavor, config);
 
       if (keyFile.existsSync()) {
