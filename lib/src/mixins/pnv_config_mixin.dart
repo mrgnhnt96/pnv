@@ -100,18 +100,13 @@ mixin PnvConfigMixin on PubspecMixin, PlatformMixin {
     }
   }
 
-  Directory? _storage;
-  Directory? get storageDir {
-    if (_storage case final Directory dir) {
-      return dir;
-    }
-
-    final config = pnvConfig();
-
-    if (config == null) {
-      return null;
-    }
-
-    return _storage = fs.directory(replaceHome(config.storage));
+  Directory storageDir(PnvConfig config) {
+    return fs.directory(replaceHome(config.storage));
   }
+
+  File storageKeyFile(String flavor, PnvConfig config) {
+    return storageDir(config).childFile('$flavor$keyExtension');
+  }
+
+  String get keyExtension => '.key';
 }

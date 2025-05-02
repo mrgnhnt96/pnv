@@ -92,40 +92,33 @@ abstract class CrypticCommand extends Command<int>
       return key;
     }
 
+    final config = pnvConfig();
+
+    if (config == null) {
+      throw ArgumentError(
+        'Failed to find pnv config. Try running '
+        '`pnv init` and try again.',
+      );
+    }
+
     String? flavorKeyFile;
     if (flavor case final String flavor when flavor.trim().isNotEmpty) {
-      if (storageDir case final dir?) {
-        final keyFile = dir.childFile('$flavor.key');
+      final keyFile = storageKeyFile(flavor, config);
 
-        if (keyFile.existsSync()) {
-          flavorKeyFile = keyFile.path;
-        } else {
-          final config = pnvConfig();
+      if (keyFile.existsSync()) {
+        flavorKeyFile = keyFile.path;
+      } else {
+        for (final MapEntry(key: flavor, value: aliases)
+            in config.flavors.entries) {
+          if (aliases.contains(flavor)) {
+            final keyFile = storageKeyFile(flavor, config);
 
-          if (config == null) {
-            throw ArgumentError(
-              'Failed to find pnv config. Try running '
-              '`pnv init` and try again.',
-            );
-          }
-
-          for (final MapEntry(:key, value: extensions)
-              in config.flavors.entries) {
-            if (extensions.contains(flavor)) {
-              final keyFile = dir.childFile('$key.key');
-
-              if (keyFile.existsSync()) {
-                flavorKeyFile = keyFile.path;
-                break;
-              }
+            if (keyFile.existsSync()) {
+              flavorKeyFile = keyFile.path;
+              break;
             }
           }
         }
-      } else {
-        throw ArgumentError(
-          'Failed to find storage directory. Try running '
-          '`pnv init` and try again.',
-        );
       }
     }
 
