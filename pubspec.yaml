@@ -1,5 +1,5 @@
 name: pnv
-version: 1.4.0
+version: 1.4.1
 description: A package to help with safely storing environment variables publicly
 repository: https://github.com/mrgnhnt96/pnv
 issue_tracker: https://github.com/mrgnhnt96/pnv/issues
