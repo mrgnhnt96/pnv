@@ -23,7 +23,7 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
         aliases: ['dir'],
         help: 'The input directory containing the .yaml files to '
             'generate the .env file from.',
-        valueHelp: 'infra.local.yaml',
+        valueHelp: 'public',
       )
       ..addOption(
         'output',
