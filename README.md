@@ -54,7 +54,9 @@ pnv <command> [arguments]
 - **`create flavor`**: Create a new flavor associated with a new encryption key.
 - **`encrypt`**: Encrypt a secret using a previously generated key.
 - **`decrypt`**: Decrypt a secret using the correct key.
-- **`generate-env`**: Generate a `.env` file from a `.yaml` file.
+- **`delete flavor`**: Delete a flavor.
+- **`generate env`**: Generate a `.env` file from a `.yaml` file.
+- **`generate dart`**: Generate a `dart` file from a `.env` file.
 - **`to-dart-define`**: Convert an `.env` file to Dart Define arguments for use in a Dart build.
 
 For more information on a specific command, run:
@@ -117,6 +119,7 @@ The flavor name will be used as a reference to encrypt/decrypt secrets. You can 
 >   "storage": "~/.pnv",
 >   "flavors": {
 >     "ci": ["test"]
+>   }
 > }
 > ```
 >
@@ -197,10 +200,10 @@ api:
   key: SECRET;<encoded_data>
 ```
 
-You can then run the `generate-env` command to create an `.env` file:
+You can then run the `generate env` command to create an `.env` file:
 
 ```bash
-pnv generate-env --directory env_files --output env_files/outputs
+pnv generate env --directory env_files --output env_files/outputs
 ```
 
 This would generate the following environment variable:
@@ -214,14 +217,14 @@ API_PORT=8080
 API_KEY=<decoded_data>
 ```
 
-When the `generate-env` command is called, pnv will combine the keys to create flat environment variable names, which makes them compatible with most CI/CD tools and other environment management systems.
+When the `generate env` command is called, pnv will combine the keys to create flat environment variable names, which makes them compatible with most CI/CD tools and other environment management systems.
 
 > [!TIP]
 >
 > If you would like to generate the env file for a specific flavor, you can use the `--flavor` flag:
 >
 > ```bash
-> pnv generate-env --directory env_files --output env_files/outputs --flavor ci
+> pnv generate env --directory env_files --output env_files/outputs --flavor ci
 > ```
 >
 > All file extensions associated with the flavor will be generated into `.env` files.
@@ -242,16 +245,16 @@ Each of these files can contain the same structure but with different values. Yo
 
 ```bash
 # Generate all environments
-pnv generate-env --directory env_files
+pnv generate env --directory env_files
 
 # Generate development environment
-pnv generate-env --directory env_files --flavor development
+pnv generate env --directory env_files --flavor development
 
 # Generate staging environment
-pnv generate-env --directory env_files --flavor staging
+pnv generate env --directory env_files --flavor staging
 
 # Generate production environment
-pnv generate-env --directory env_files --flavor production
+pnv generate env --directory env_files --flavor production
 ```
 
 Mentioned above, you can configure the `.pnvrc` file to associate different extensions with different flavors.
