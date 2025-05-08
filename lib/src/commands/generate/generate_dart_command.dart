@@ -42,6 +42,14 @@ class GenerateDartCommand extends Command<int>
         aliases: ['input'],
         help: 'The input .env file to generate the .dart file from.',
         valueHelp: 'infra.local.env',
+      )
+      ..addOption(
+        'class-name',
+        abbr: 'c',
+        help: 'The name of the class to generate. Defaults to '
+            'name of the input file (backend.local.env -> Backend).'
+            '\n\nApplies only to the --file flag.',
+        valueHelp: 'Env',
       );
   }
 
@@ -114,6 +122,13 @@ class GenerateDartCommand extends Command<int>
 
   String? get flavor => argResults['flavor'] as String?;
 
+  String? get className {
+    return switch (argResults['class-name']) {
+      final String name => name,
+      _ => null,
+    };
+  }
+
   @override
   Future<int>? run() async {
     try {
@@ -154,6 +169,7 @@ class GenerateDartCommand extends Command<int>
         final result = await generateDartFromEnv(
           input,
           output: output,
+          className: className,
         );
 
         return result ? 0 : 1;
@@ -187,7 +203,11 @@ class GenerateDartCommand extends Command<int>
         directory: dir,
         flavor: flavor,
         config: config,
-        action: (file) => generateDartFromEnv(file, output: output),
+        action: (file) => generateDartFromEnv(
+          file,
+          output: output,
+          className: null,
+        ),
       );
 
       if (!result) {
@@ -200,7 +220,11 @@ class GenerateDartCommand extends Command<int>
     if (dir case final String dir) {
       for (final file in fs.directory(dir).listSync().whereType<File>()) {
         try {
-          final result = await generateDartFromEnv(file.path, output: output);
+          final result = await generateDartFromEnv(
+            file.path,
+            output: output,
+            className: null,
+          );
           return result ? 0 : 1;
         } catch (e) {
           logger.err('Failed to generate .dart file.\n$e');

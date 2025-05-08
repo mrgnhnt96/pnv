@@ -209,6 +209,7 @@ mixin FileMixin {
   Future<bool> generateDartFromEnv(
     String input, {
     required String output,
+    required String? className,
   }) async {
     final entries = entriesFromEnv(input);
 
@@ -222,7 +223,7 @@ mixin FileMixin {
     if (flavor.isNotEmpty) {
       baseName = baseName.replaceAll('.$flavor', '');
     }
-    final className = baseName.toPascalCase();
+    final clazz = (className ?? baseName).toPascalCase();
     final outputFile = p.join(output, '$baseName.dart');
     logger.detail('🔍 Generating .dart file at "$outputFile".');
     final outFile = fs.file(outputFile);
@@ -239,8 +240,8 @@ mixin FileMixin {
     }
 
     final content = '''
-class $className {
-  const $className._();
+class $clazz {
+  const $clazz._();
 
 ${fields.toString().trimRight()}
 }
