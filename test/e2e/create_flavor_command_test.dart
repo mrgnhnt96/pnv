@@ -35,6 +35,10 @@ void main() {
       when(() => logger.err(any())).thenAnswer((e) {
         print(e.positionalArguments.first);
       });
+
+      when(() => logger.progress(any())).thenAnswer((e) {
+        return _MockProgress();
+      });
     });
 
     group('runs successfully', () {
@@ -110,3 +114,5 @@ void main() {
 }
 
 class _MockLogger extends Mock implements Logger {}
+
+class _MockProgress extends Mock implements Progress {}
