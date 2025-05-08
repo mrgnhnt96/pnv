@@ -30,7 +30,7 @@ class CreateFlavorCommand extends Command<int> {
 
   @override
   int run() {
-    final success = flavorHandler.create(flavorName ?? '');
+    final success = flavorHandler.create(flavorName ?? '', log: true);
 
     if (!success) {
       return 1;

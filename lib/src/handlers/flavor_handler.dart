@@ -35,6 +35,7 @@ class FlavorHandler
   bool create(
     String flavor, {
     PnvConfig? config,
+    bool log = false,
   }) {
     config ??= pnvConfig();
 
@@ -79,7 +80,14 @@ class FlavorHandler
       }
     }
 
+    final progress = switch (log) {
+      true => logger.progress('Creating'),
+      false => null,
+    };
+
     _createAndSave(newFlavor, config);
+
+    progress?.complete('Created flavor ${cyan.wrap(newFlavor)}');
 
     return true;
   }
