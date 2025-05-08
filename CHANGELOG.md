@@ -1,5 +1,20 @@
 # Change Log
 
+## 1.5.0 | 5.08.25
+
+### Features
+
+- Add ability to specify the class name when generating Dart env file
+  - Applies only to the `--file` flag
+
+### Enhancements
+
+- Add logging when creating a flavor
+
+### Fixes
+
+- Identify numbers as numbers when generating Dart env files
+
 ## 1.4.2 | 5.02.25
 
 ### Features
