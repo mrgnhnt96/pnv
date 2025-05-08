@@ -254,6 +254,10 @@ ${fields.toString().trimRight()}
   }
 
   ValueType getValueType(String value) {
+    if (int.tryParse(value) case int()) {
+      return ValueType.num;
+    }
+
     final stringPatterns = [
       RegExp(r'^".*"$'),
       RegExp(r'^[\w]+$'),
@@ -268,7 +272,6 @@ ${fields.toString().trimRight()}
     return switch (value) {
       'false' => ValueType.bool,
       'true' => ValueType.bool,
-      _ when num.tryParse(value) != null => ValueType.num,
       _ => ValueType.string,
     };
   }
@@ -280,7 +283,7 @@ enum ValueType {
   bool;
 
   String fromEnvironment(String key) => switch (this) {
-        num => "num.fromEnvironment('$key')",
+        num => "int.fromEnvironment('$key')",
         string => "String.fromEnvironment('$key')",
         bool => "bool.fromEnvironment('$key')",
       };
