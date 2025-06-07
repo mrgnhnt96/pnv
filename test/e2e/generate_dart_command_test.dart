@@ -214,8 +214,11 @@ MY_DECLARED_BOOL= #bool
             // ignore: lines_longer_than_80_chars
             "  static const myEmptyString = String.fromEnvironment('MY_EMPTY_STRING');",
             "  static const myEmpty = String.fromEnvironment('MY_EMPTY');",
+            // ignore: lines_longer_than_80_chars
             "  static const myDeclaredNum = int.fromEnvironment('MY_DECLARED_NUM');",
+            // ignore: lines_longer_than_80_chars
             "  static const myDeclaredString = String.fromEnvironment('MY_DECLARED_STRING');",
+            // ignore: lines_longer_than_80_chars
             "  static const myDeclaredBool = bool.fromEnvironment('MY_DECLARED_BOOL');",
           ];
 
