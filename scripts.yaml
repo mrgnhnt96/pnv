@@ -47,3 +47,8 @@ publish:
     echo "Pushing to origin"
     git push
     git push --tags
+
+install:
+  - sip clean --locks
+  - sip pub get
+  - dart pub global activate --source path .
