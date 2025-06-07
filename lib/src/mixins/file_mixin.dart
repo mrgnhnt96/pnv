@@ -194,8 +194,8 @@ mixin FileMixin {
 
     await outputFile.writeAsString(env.toString());
 
-    logger.info('${green.wrap('✔️')} Generated .env file '
-        'at "${yellow.wrap(p.relative(outputFile.path))}".');
+    logger.info('${green.wrap('✓')} Generated .env file '
+        'at ${yellow.wrap(p.relative(outputFile.path))}');
 
     return true;
   }
@@ -274,7 +274,8 @@ ${fields.toString().trimRight()}
 
     await outFile.writeAsString(content);
 
-    logger.info('✅ Generated .dart file at "${p.relative(outputFile)}".');
+    logger.info('${green.wrap('✓')} Generated .dart file at '
+        '${yellow.wrap(p.relative(outputFile))}');
 
     return true;
   }
