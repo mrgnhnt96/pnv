@@ -208,6 +208,50 @@ my:
         });
       });
     });
+
+    group('should maintain post comments', () {
+      Future<void> run() async {
+        const type = _KeyType.alias;
+        final arg = prepEnv(type);
+
+        fs.file(appLocalYaml)
+          ..createSync()
+          ..writeAsStringSync('''
+my:
+  secret: # string
+  number: 0 # int
+''');
+
+        await pnv.main(
+          [
+            'generate',
+            'env',
+            arg,
+            '--output=$decryptedDirectory',
+            '--file=$appLocalYaml',
+          ],
+          providedFs: fs,
+          providedLogger: logger,
+        );
+      }
+
+      test('successfully', () async {
+        final file = fs.file(appLocalEnv);
+        expect(file.existsSync(), isFalse);
+
+        await run();
+
+        const expected = '''
+# .
+# .my
+MY_SECRET= # string
+MY_NUMBER=0 # int
+''';
+
+        expect(file.existsSync(), isTrue);
+        expect(file.readAsStringSync(), expected);
+      });
+    });
   });
 }
 

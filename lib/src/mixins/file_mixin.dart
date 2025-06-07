@@ -115,7 +115,12 @@ mixin FileMixin {
 
     final env = StringBuffer();
 
-    void write(Iterable<String> prefix, String key, dynamic value) {
+    void write(
+      Iterable<String> prefix,
+      String key,
+      dynamic value, {
+      required String? comment,
+    }) {
       var prefixString = '';
       if (prefix.isNotEmpty) {
         prefixString = prefix.join('_');
@@ -124,53 +129,73 @@ mixin FileMixin {
 
       final envVarKey = '$prefixString$key'.toUpperCase().replaceAll('-', '_');
 
-      env.writeln('$envVarKey=$value');
+      var entry = '$envVarKey=$value';
+      if (comment != null) {
+        entry += ' # $comment';
+      }
+
+      env.writeln(entry);
     }
 
-    void traverse(
-      Map<String, dynamic> data, {
-      Iterable<String> prefix = const [],
+    final entries = envEntriesFromYaml(yaml);
+
+    void decryptValue(
+      Iterable<String> prefix,
+      String key,
+      String value, {
+      required String? comment,
     }) {
-      final location = prefix.isNotEmpty ? '.${prefix.join('.')}' : '.';
+      var plainText = value;
 
-      env.writeln('# $location');
-      for (final key in data.keys) {
-        final value = data[key];
+      if (value.startsWith('SECRET;')) {
+        plainText = decrypt(value, keyHash);
+      }
 
-        void decryptValue(String value) {
-          var plainText = value;
+      write(prefix, key, '"$plainText"', comment: comment);
+    }
 
-          if (value.startsWith('SECRET;')) {
-            plainText = decrypt(value, keyHash);
-          }
-
-          write(prefix, key, '"$plainText"');
+    void writeEntry(EnvEntries entry) {
+      if (entry.entries case final entries?) {
+        env.writeln('# .${entry.parents.join('.')}');
+        if (entries case [final sub, ...]) {
+          env.writeln('# .${sub.parents.join('.')}');
         }
 
-        final _ = switch (value) {
-          String() => decryptValue(value),
-          int() => write(prefix, key, value),
-          double() => write(prefix, key, value),
-          bool() => write(prefix, key, value),
-          Map<String, dynamic>() =>
-            traverse(value, prefix: prefix.followedBy([key])),
-          YamlMap() => traverse(
-              Map<String, dynamic>.from(value),
-              prefix: prefix.followedBy([key]),
-            ),
-          Null() => null,
-          _ => throw ArgumentError(
+        for (final sub in entries) {
+          writeEntry(sub);
+        }
+      } else if (entry
+          case EnvEntries(
+            :final key,
+            :final value,
+            :final comment,
+            :final parents
+          )) {
+        switch (value) {
+          case String():
+            decryptValue(parents, key, value, comment: comment);
+          case Null():
+            write(parents, key, '', comment: comment);
+          case int():
+          case double():
+          case bool():
+            write(parents, key, value, comment: comment);
+          case _:
+            throw ArgumentError(
               'Unsupported value type. ${value.runtimeType} ($value)',
-            ),
-        };
+            );
+        }
       }
     }
 
-    traverse(Map<String, dynamic>.from(yaml.value));
+    for (final entry in entries) {
+      writeEntry(entry);
+    }
 
     await outputFile.writeAsString(env.toString());
 
-    logger.info('✅ Generated .env file at "${p.relative(outputFile.path)}".');
+    logger.info('${green.wrap('✔️')} Generated .env file '
+        'at "${yellow.wrap(p.relative(outputFile.path))}".');
 
     return true;
   }
@@ -268,6 +293,7 @@ ${fields.toString().trimRight()}
         when RegExp(r'^[a-zA-Z]+$').hasMatch(type)) {
       final result = switch (type.toLowerCase()) {
         'num' => ValueType.num,
+        'int' => ValueType.num,
         'string' => ValueType.string,
         'bool' => ValueType.bool,
         _ => null,
@@ -319,4 +345,64 @@ enum ValueType {
         string => "String.fromEnvironment('$key')",
         bool => "bool.fromEnvironment('$key')",
       };
+}
+
+class EnvEntries {
+  const EnvEntries.sub(
+    this.key,
+    List<EnvEntries> this.entries,
+  )   : value = null,
+        comment = null,
+        parents = const [];
+
+  const EnvEntries.value(
+    this.key,
+    this.value, {
+    required this.comment,
+    required this.parents,
+  }) : entries = null;
+
+  final String key;
+  final Iterable<String> parents;
+  final dynamic value;
+  final String? comment;
+  final List<EnvEntries>? entries;
+}
+
+List<EnvEntries> envEntriesFromYaml(YamlMap yaml, {Iterable<String>? parents}) {
+  parents ??= [];
+
+  final entries = <EnvEntries>[];
+  for (final MapEntry(:String key, value: value) in yaml.entries) {
+    if (value is YamlMap) {
+      entries.add(
+        EnvEntries.sub(
+          key,
+          envEntriesFromYaml(value, parents: parents.followedBy([key])),
+        ),
+      );
+    } else {
+      final lines = yaml.span.text.split('\n');
+      String? comment;
+      for (final line in lines) {
+        if (line.contains('$key:')) {
+          comment = switch (line.split('#')) {
+            [_, final comment] => comment.trim(),
+            _ => null,
+          };
+        }
+      }
+
+      entries.add(
+        EnvEntries.value(
+          key,
+          value,
+          comment: comment,
+          parents: parents,
+        ),
+      );
+    }
+  }
+
+  return entries;
 }

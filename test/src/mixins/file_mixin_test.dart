@@ -45,6 +45,12 @@ void main() {
         expect(instance.getValueType(' #num'), ValueType.num);
         expect(instance.getValueType(' #NUM'), ValueType.num);
       });
+      test(
+          'should return the type when the value is missing but declared (int)',
+          () {
+        expect(instance.getValueType(' #int'), ValueType.num);
+        expect(instance.getValueType(' #INT'), ValueType.num);
+      });
 
       test(
           'should return the type when the value is '
