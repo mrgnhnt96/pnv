@@ -295,3 +295,57 @@ These components are combined and base64 encoded, producing the final secret in 
 During decryption, the encoded secret is split to retrieve the authentication tag, IV, and encrypted data from the encoded secret. Using AES-GCM, it verifies the data integrity and then decrypts the ciphertext, producing the original plaintext.
 
 By using a secure, random IV and verifying integrity with the authentication tag, pnv ensures robust encryption that protects against replay attacks and guarantees authenticity.
+
+## Generated Dart File
+
+Leveraging Dart's type system, pnv can generate a Dart file that contains the environment variables static values.
+
+Lets say you have the following `.env` file:
+
+```dotenv
+# .env
+MY_STRING="hello"
+MY_NUM=123
+MY_BOOL=true
+```
+
+You can generate a Dart file that contains the environment variables static values.
+
+```bash
+pnv generate dart --output lib/envs --file private/.env
+```
+
+> [!TIP]
+>
+> Run `pnv generate dart --help` to see all the options for the `generate dart` command.
+
+```dart
+class MyEnv {
+  const MyEnv._();
+
+  static const myString = String.fromEnvironment('MY_STRING');
+  static const myNum = int.fromEnvironment('MY_NUM');
+  static const myBool = bool.fromEnvironment('MY_BOOL');
+}
+```
+
+### Force Types
+
+Occasionally, you may have an environment variable that only exists in certain environments. For example, you have a `DB_PORT` that exists in the `development` environment but not in the `production` environment.
+
+In cases like this, you can tell pnv to force the type of the environment variable by adding a comment after the value
+
+```yaml
+# app.yaml
+
+db:
+  port: # int
+```
+
+Which will (roughly) generate the following `.env` file:
+
+```dotenv
+DB_PORT= # int
+```
+
+This will force the type within the generated Dart file to be an `int`
