@@ -1,5 +1,16 @@
 # Change Log
 
+## 1.6.0 | 6.7.25
+
+### Features
+
+- Add abililty to force types when generating Dart files from `.env` files
+
+### Enhancements
+
+- Update README
+- Update logs
+
 ## 1.5.0 | 5.08.25
 
 ### Features
