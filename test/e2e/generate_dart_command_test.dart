@@ -162,6 +162,71 @@ MY_SECRET="$decryptedSecret"
           expect(file.readAsStringSync(), expectedLocalContent);
         });
       });
+
+      group('should infer types', () {
+        Future<void> run() async {
+          const type = _KeyType.noExtension;
+          final arg = prepEnv(type);
+
+          final file = switch (type) {
+            _KeyType.alias => appLozEnv,
+            _KeyType.noExtension => localEnv,
+            _ => appLocalEnv,
+          };
+          fs.file(file)
+            ..createSync()
+            ..writeAsStringSync('''
+# .
+# .my
+MY_STRING="hello"
+MY_NUM=123
+MY_BOOL=true
+MY_EMPTY_STRING=""
+MY_EMPTY=
+MY_DECLARED_NUM= #num
+MY_DECLARED_STRING= #string
+MY_DECLARED_BOOL= #bool
+''');
+
+          await pnv.main(
+            [
+              'generate',
+              'dart',
+              arg,
+              '--output=$dartDirectory',
+              '--dir=$decryptedDirectory',
+            ],
+            providedFs: fs,
+            providedLogger: logger,
+          );
+        }
+
+        test('should infer types', () async {
+          final file = fs.file(localDart);
+          expect(file.existsSync(), isFalse);
+
+          await run();
+
+          final expectedLines = [
+            "  static const myString = String.fromEnvironment('MY_STRING');",
+            "  static const myNum = int.fromEnvironment('MY_NUM');",
+            "  static const myBool = bool.fromEnvironment('MY_BOOL');",
+            // ignore: lines_longer_than_80_chars
+            "  static const myEmptyString = String.fromEnvironment('MY_EMPTY_STRING');",
+            "  static const myEmpty = String.fromEnvironment('MY_EMPTY');",
+            "  static const myDeclaredNum = int.fromEnvironment('MY_DECLARED_NUM');",
+            "  static const myDeclaredString = String.fromEnvironment('MY_DECLARED_STRING');",
+            "  static const myDeclaredBool = bool.fromEnvironment('MY_DECLARED_BOOL');",
+          ];
+
+          expect(file.existsSync(), isTrue);
+          for (final line in file.readAsLinesSync()) {
+            expectedLines.remove(line);
+          }
+
+          expect(expectedLines, isEmpty);
+        });
+      });
     });
   });
 }

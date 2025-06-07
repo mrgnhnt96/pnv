@@ -254,9 +254,44 @@ ${fields.toString().trimRight()}
     return true;
   }
 
-  ValueType getValueType(String value) {
+  ValueType getValueType(String raw) {
+    var value = raw;
+    String? declaredType;
+
+    final parts = raw.split('#');
+    if (parts.length == 2) {
+      value = parts.first.trim();
+      declaredType = parts.last.trim();
+    }
+
+    if (declaredType case final String type
+        when RegExp(r'^[a-zA-Z]+$').hasMatch(type)) {
+      final result = switch (type.toLowerCase()) {
+        'num' => ValueType.num,
+        'string' => ValueType.string,
+        'bool' => ValueType.bool,
+        _ => null,
+      };
+
+      if (result != null) {
+        return result;
+      }
+
+      logger.warn('Did not recognize type "$type" for value "$value".');
+    }
+
     if (int.tryParse(value) case int()) {
       return ValueType.num;
+    }
+
+    final boolType = switch (value) {
+      'false' => ValueType.bool,
+      'true' => ValueType.bool,
+      _ => null,
+    };
+
+    if (boolType != null) {
+      return boolType;
     }
 
     final stringPatterns = [
@@ -270,11 +305,7 @@ ${fields.toString().trimRight()}
       }
     }
 
-    return switch (value) {
-      'false' => ValueType.bool,
-      'true' => ValueType.bool,
-      _ => ValueType.string,
-    };
+    return ValueType.string;
   }
 }
 
