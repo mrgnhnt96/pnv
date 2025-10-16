@@ -1,10 +1,11 @@
 # Change Log
 
-## 1.7.0 | 10.15.25
+## 1.7.1 | 10.15.25
 
 ### Features
 
 - Disable dart format when generating Dart files from `.env` files
+- Ignore lines longer than 80 characters when generating Dart files from `.env` files
 
 ## 1.6.0 | 6.7.25
 
