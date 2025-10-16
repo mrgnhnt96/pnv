@@ -1,5 +1,11 @@
 # Change Log
 
+## 1.7.0 | 10.15.25
+
+### Features
+
+- Disable dart format when generating Dart files from `.env` files
+
 ## 1.6.0 | 6.7.25
 
 ### Features
