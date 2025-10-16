@@ -75,6 +75,8 @@ void main() {
 
     group('runs successfully', () {
       const expectedAppContent = '''
+// dart format off
+
 class App {
   const App._();
 
@@ -82,6 +84,8 @@ class App {
 }
 ''';
       const expectedLocalContent = '''
+// dart format off
+
 class Local {
   const Local._();
 
