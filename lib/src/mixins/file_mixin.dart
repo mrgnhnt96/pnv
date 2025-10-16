@@ -265,6 +265,8 @@ mixin FileMixin {
     }
 
     final content = '''
+// dart format off
+
 class $clazz {
   const $clazz._();
 
