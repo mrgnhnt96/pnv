@@ -266,6 +266,7 @@ mixin FileMixin {
 
     final content = '''
 // dart format off
+// ignore_for_file: lines_longer_than_80_chars
 
 class $clazz {
   const $clazz._();

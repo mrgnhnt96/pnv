@@ -76,6 +76,7 @@ void main() {
     group('runs successfully', () {
       const expectedAppContent = '''
 // dart format off
+// ignore_for_file: lines_longer_than_80_chars
 
 class App {
   const App._();
@@ -85,6 +86,7 @@ class App {
 ''';
       const expectedLocalContent = '''
 // dart format off
+// ignore_for_file: lines_longer_than_80_chars
 
 class Local {
   const Local._();
