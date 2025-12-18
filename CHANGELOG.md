@@ -1,5 +1,11 @@
 # Change Log
 
+## 1.7.2 | 12.18.25
+
+### Fixes
+
+- Fix issue where base64 encoded secrets were not being properly decoded when generating Dart files from `.env` files
+
 ## 1.7.1 | 10.15.25
 
 ### Features
