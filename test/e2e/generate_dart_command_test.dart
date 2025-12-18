@@ -236,6 +236,56 @@ MY_DECLARED_BOOL= #bool
           expect(expectedLines, isEmpty);
         });
       });
+
+      group('should handle base64 encoded secrets', () {
+        Future<void> run() async {
+          const type = _KeyType.noExtension;
+          final arg = prepEnv(type);
+
+          final file = switch (type) {
+            _KeyType.alias => appLozEnv,
+            _KeyType.noExtension => localEnv,
+            _ => appLocalEnv,
+          };
+          fs.file(file)
+            ..createSync()
+            ..writeAsStringSync('''
+# .
+# .my
+MY_STRING="SGVsbG8="
+''');
+
+          await pnv.main(
+            [
+              'generate',
+              'dart',
+              arg,
+              '--output=$dartDirectory',
+              '--dir=$decryptedDirectory',
+            ],
+            providedFs: fs,
+            providedLogger: logger,
+          );
+        }
+
+        test('should infer types', () async {
+          final file = fs.file(localDart);
+          expect(file.existsSync(), isFalse);
+
+          await run();
+
+          final expectedLines = [
+            "  static const myString = String.fromEnvironment('MY_STRING');",
+          ];
+
+          expect(file.existsSync(), isTrue);
+          for (final line in file.readAsLinesSync()) {
+            expectedLines.remove(line);
+          }
+
+          expect(expectedLines, isEmpty);
+        });
+      });
     });
   });
 }

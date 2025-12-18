@@ -215,7 +215,13 @@ mixin FileMixin {
         continue;
       }
 
-      final parts = line.split('=');
+      final match = RegExp('=').firstMatch(line);
+      final index = match?.start;
+      if (index == null) {
+        continue;
+      }
+
+      final parts = [line.substring(0, index), line.substring(index + 1)];
       if (parts.length != 2) {
         logger
             .detail('Skipping line "$line" because it is not a valid env var.');
