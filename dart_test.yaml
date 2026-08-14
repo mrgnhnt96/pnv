@@ -1,0 +1,6 @@
+tags:
+  # Drives the real executable in a real process against a real temp project.
+  # Slower than the in-memory suites, and the only place that can see exit
+  # codes, the stdout/stderr split, and file permissions.
+  e2e:
+    timeout: 2x
