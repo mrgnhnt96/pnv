@@ -23,7 +23,7 @@ class PnvRunner extends CommandRunner<int> {
     addCommand(DeprecatedGenerateEnvCommand(logger: logger, fs: fs));
     addCommand(CreateCommand(logger: logger, flavorHandler: flavorHandler));
     addCommand(DeleteCommand(logger: logger, flavorHandler: flavorHandler));
-    addCommand(ToDartDefineCommand(fs: fs));
+    addCommand(ToDartDefineCommand(fs: fs, logger: logger));
     addCommand(
       InitCommand(logger: logger, fs: fs, flavorHandler: flavorHandler),
     );

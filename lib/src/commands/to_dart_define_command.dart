@@ -1,12 +1,27 @@
 import 'package:args/command_runner.dart';
 import 'package:file/file.dart';
+import 'package:mason_logger/mason_logger.dart';
+import 'package:pnv/src/mixins/file_mixin.dart';
 
 class ToDartDefineCommand extends Command<int> {
   ToDartDefineCommand({
     required this.fs,
-  });
+    required this.logger,
+  }) {
+    argParser.addFlag(
+      'per-line',
+      abbr: 'l',
+      negatable: false,
+      help: 'Emit one -Dkey=value per line instead of a single space-joined '
+          'string.\n'
+          'Required for values containing whitespace, which cannot survive '
+          'command substitution:\n'
+          '  pnv to-dart-define -l .env | xargs flutter build apk',
+    );
+  }
 
   final FileSystem fs;
+  final Logger logger;
 
   @override
   String get usage => super.usage.replaceFirst('[arguments]', '<files>');
@@ -17,57 +32,84 @@ class ToDartDefineCommand extends Command<int> {
   @override
   String get name => 'to-dart-define';
 
+  bool get perLine => switch (argResults?['per-line']) {
+        true => true,
+        _ => false,
+      };
+
   @override
   Future<int> run() async {
-    final rest = argResults!.rest;
+    final rest = argResults?.rest ?? const <String>[];
 
     if (rest.isEmpty) {
       printUsage();
       return 1;
     }
 
-    final files = rest.map(fs.file);
-
-    final defines = <String>[];
-
     final lines = <String>[];
 
-    for (final file in files) {
-      if (!await file.exists()) {
-        print('File ${file.path} does not exist.');
+    for (final path in rest) {
+      final file = fs.file(path);
+
+      if (!file.existsSync()) {
+        logger.err('File $path does not exist.');
         return 1;
       }
 
-      lines.addAll(await file.readAsLines());
+      lines.addAll(file.readAsLinesSync());
     }
 
+    final defines = <String>[];
+    final withWhitespace = <String>[];
+
     for (final line in lines) {
-      final parts = line.split('=');
-      if (parts.length != 2) {
+      if (line.trimLeft().startsWith('#')) {
         continue;
       }
 
-      final key = parts[0].trim().replaceAll('"', '');
-      final value = parts[1].trim().replaceAll('"', '');
+      // Split on the FIRST `=` only. Splitting on every one and demanding
+      // exactly two parts silently dropped every base64 value, because
+      // base64 padding is `=`.
+      final index = line.indexOf('=');
+      if (index == -1) {
+        continue;
+      }
+
+      final key = line.substring(0, index).replaceAll('"', '').trim();
+      final (value: raw, comment: _) = splitEnvValue(line.substring(index + 1));
+      final value = unquoteEnvValue(raw);
 
       if (key.isEmpty || value.isEmpty) {
         continue;
       }
 
-      if (key.startsWith('#')) {
-        continue;
+      if (value.contains(RegExp(r'\s'))) {
+        withWhitespace.add(key);
       }
 
-      defines.add('$key=$value');
+      defines.add('-D$key=$value');
     }
 
-    final buffer = StringBuffer();
+    if (perLine) {
+      for (final define in defines) {
+        logger.write('$define\n');
+      }
 
-    for (final define in defines) {
-      buffer.write('-D$define ');
+      return 0;
     }
 
-    print(buffer);
+    if (withWhitespace.isNotEmpty) {
+      // A quoted argument does not survive `$(...)`: the shell word-splits the
+      // RESULT of the substitution, and no amount of quoting inside it
+      // prevents that. Saying so is the only honest option.
+      logger.err(
+        '⚠ ${withWhitespace.join(', ')} contain whitespace and will be split '
+        r'into separate arguments by `$(pnv to-dart-define ...)`. '
+        'Use --per-line with xargs instead.',
+      );
+    }
+
+    logger.write('${defines.join(' ')}\n');
 
     return 0;
   }
