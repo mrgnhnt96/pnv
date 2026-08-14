@@ -2,6 +2,7 @@ import 'package:change_case/change_case.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
+import 'package:pnv/src/crypto/secret_token.dart';
 import 'package:pnv/src/models/pnv_config.dart';
 import 'package:pnv/src/pnv_exception.dart';
 import 'package:yaml/yaml.dart';
@@ -12,7 +13,12 @@ mixin FileMixin {
 
   String? get input;
 
-  String decrypt(String value, List<int> keyHash, {String? context});
+  String decrypt(
+    String value,
+    List<int> keyHash, {
+    String? context,
+    List<int>? keyBytes,
+  });
 
   String flavorFrom(String path) {
     if (p.basenameWithoutExtension(path) case final name
@@ -76,6 +82,7 @@ mixin FileMixin {
   String renderEnvFromYaml(
     String path, {
     required List<int> keyHash,
+    List<int>? keyBytes,
   }) {
     final file = fs.file(path);
 
@@ -130,11 +137,12 @@ mixin FileMixin {
     }) {
       var plainText = value;
 
-      if (value.startsWith('SECRET;')) {
+      if (isSecret(value)) {
         plainText = decrypt(
           value,
           keyHash,
           context: '${p.relative(path)} → ${[...prefix, key].join('.')}',
+          keyBytes: keyBytes,
         );
       }
 
@@ -187,10 +195,11 @@ mixin FileMixin {
     String path, {
     required String output,
     required List<int> keyHash,
+    List<int>? keyBytes,
   }) async {
     final String content;
     try {
-      content = renderEnvFromYaml(path, keyHash: keyHash);
+      content = renderEnvFromYaml(path, keyHash: keyHash, keyBytes: keyBytes);
     } on PnvException catch (e) {
       logger.err('❌ ${e.message}');
       return false;

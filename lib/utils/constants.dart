@@ -15,3 +15,13 @@ const newKeyLength = 32;
 /// Keys created before [newKeyLength] was raised are 12 bytes, so this cannot
 /// move up without invalidating them.
 const minKeyLength = 12;
+
+/// Bytes of key fingerprint carried in a v1 secret.
+///
+/// Enough to make an accidental cross-flavor paste obvious; not a security
+/// boundary, since the auth tag is what actually rejects a wrong key.
+const keyIdLength = 4;
+
+/// Domain separator for the key fingerprint, so a key id can never be a
+/// prefix of the AES key itself.
+const keyIdDomain = 'pnv:key-id:v1';

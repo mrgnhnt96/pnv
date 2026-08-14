@@ -81,7 +81,12 @@ class _Test with FileMixin {
   final FileSystem fs;
 
   @override
-  String decrypt(String value, List<int> keyHash, {String? context}) {
+  String decrypt(
+    String value,
+    List<int> keyHash, {
+    String? context,
+    List<int>? keyBytes,
+  }) {
     return value;
   }
 

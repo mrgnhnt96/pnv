@@ -153,15 +153,18 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
     final rendered = <File, String>{};
 
     for (final path in inputs) {
-      final keyHash = keyHashForInput(path, selected);
+      final resolved = keyForInput(path, selected);
 
-      if (keyHash == null) {
+      if (resolved == null) {
         return 1;
       }
 
       try {
-        rendered[outputEnvFileFor(path, output)] =
-            renderEnvFromYaml(path, keyHash: keyHash);
+        rendered[outputEnvFileFor(path, output)] = renderEnvFromYaml(
+          path,
+          keyHash: resolved.hash,
+          keyBytes: resolved.bytes,
+        );
       } on PnvException catch (e) {
         logger.err('❌ ${e.message}');
         return 1;
@@ -208,13 +211,16 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
   }
 
   /// The key to decrypt [path] with, or null once the reason has been logged.
-  List<int>? keyHashForInput(
+  ///
+  /// Both forms are returned: the hash is the AES key, the raw bytes are what
+  /// a v1 token's key id is checked against.
+  ({List<int> bytes, List<int> hash})? keyForInput(
     String path,
     ({String? name, Set<String>? flavors}) selected,
   ) {
     if (key != null || keyFile != null || selected.name != null) {
       try {
-        return keyHash;
+        return (bytes: secretBytes, hash: keyHash);
       } on PnvException catch (e) {
         logger.err('❌ ${e.message}');
         return null;
@@ -225,7 +231,8 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
     final inferred = flavorFrom(path);
 
     try {
-      return keyHashFor(secretFor(flavor: inferred));
+      final secret = secretFor(flavor: inferred);
+      return (bytes: decodeSecret(secret), hash: keyHashFor(secret));
     } on PnvException catch (e) {
       logger.err(
         '❌ No key for "${p.relative(path)}": its name implies flavor '

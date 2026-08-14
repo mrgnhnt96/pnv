@@ -54,7 +54,12 @@ class GenerateDartCommand extends Command<int>
   }
 
   @override
-  String decrypt(String value, List<int> keyHash, {String? context}) {
+  String decrypt(
+    String value,
+    List<int> keyHash, {
+    String? context,
+    List<int>? keyBytes,
+  }) {
     throw UnimplementedError();
   }
 
