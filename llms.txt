@@ -24,7 +24,7 @@ executable, or you consume the Dart file it generated.
   pnv init --yes     ──►  .pnvrc + <storage>/<flavor>.key   the key. NEVER in the repo.
                                     │
   envs/app.local.yaml               │                   committed. secrets are ciphertext.
-    api-key: SECRET1;<base64>  ◄────┤ pnv set app.api-key "value" --file ...
+    api-key: SECRET;v1:<b64>   ◄────┤ pnv set app.api-key "value" --file ...
                                     │ pnv get / pnv show      read it back
                                     │ pnv verify              is this safe to publish?
                                     │ pnv rotate              change the key
@@ -403,19 +403,24 @@ and stripped of any trailing `# type` comment.
 
 ## Formats
 
-### The `SECRET1;` token
+### The `SECRET;` token
 
 ```
-v1  SECRET1; + base64( keyId[4] || iv[12] || ciphertext[n] || tag[16] )   ← written now
-v0  SECRET;  + base64( tag[16]  || iv[12] || ciphertext[n] || tag[16] )   ← still read
+v1  SECRET;v1: + base64( keyId[4] || iv[12] || ciphertext[n] || tag[16] )   ← written now
+v0  SECRET;     + base64( tag[16]  || iv[12] || ciphertext[n] || tag[16] )   ← still read
 ```
+
+**`SECRET;` is the prefix in every version, and that is load-bearing outside this package.** Real
+consumers glob `SECRET;*` to decide whether a value needs decrypting, and
+`grep -E '^\s*key:\s*SECRET;'` to find blobs inside a YAML file. The version marker therefore goes
+*after* the prefix, never in front of it. It is unambiguous because the base64 alphabet contains no
+`:`, so a v0 payload can never begin with `v1:`.
 
 AES-256-GCM. The IV is 12 fresh random bytes per call, so encrypting the same plaintext twice gives
 different tokens — expected, not a bug, and the reason `git diff` needs `pnv show` to be readable.
 
-**Both versions decrypt**; only new secrets are written as v1. The two are told apart by their
-prefix rather than a byte inside the payload, because a version byte would be indistinguishable
-from the auth tag that used to occupy that position.
+**Both versions decrypt**; only new secrets are written as v1. A version *byte* inside the payload
+would not work — it would be indistinguishable from the auth tag that used to occupy that position.
 
 `keyId` is the first 4 bytes of `SHA-256("pnv:key-id:v1" || keyBytes)`. The domain separator is
 load-bearing: the AES key is `SHA-256(keyBytes)`, so deriving the id the same way would publish four
@@ -566,7 +571,7 @@ copied into their `storage` directory out of band.
 | --- | --- |
 | `lib/src/pnv_runner.dart` | the command table |
 | `lib/src/commands/cryptic_command.dart` | key resolution shared by encrypt/decrypt/generate env |
-| `lib/src/crypto/secret_token.dart` | the `SECRET1;` wire format, versions and key ids |
+| `lib/src/crypto/secret_token.dart` | the `SECRET;` wire format, versions and key ids |
 | `lib/src/handlers/encrypt_handler.dart`, `.../decrypt_handler.dart` | the cipher itself |
 | `lib/src/crypto/plaintext_detector.dart` | what `verify` considers a leaked secret |
 | `lib/src/commands/secret_file_command.dart` | shared plumbing for file commands (`leaves`, key-for-file) |

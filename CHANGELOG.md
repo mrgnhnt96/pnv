@@ -10,11 +10,12 @@
 - **`pnv import`** — build an encrypted `.yaml` from an existing `.env`, so adopting pnv is one command rather than one `encrypt` per value
 - **`pnv show`** — print a file with its secrets decrypted, for use as a git textconv driver so `git diff` on a secrets file is readable
 - **`pnv init` is scriptable** — `--storage`, repeatable `--flavor`, `--yes` and `--gitignore`. It was the only command that could not run without a terminal
-- Secrets are now written as `SECRET1;`, carrying a version and a four-byte key fingerprint. A secret encrypted under the wrong flavor is now reported as exactly that, rather than as a possible key problem
+- Secrets are now written as `SECRET;v1:`, carrying a version and a four-byte key fingerprint. A secret encrypted under the wrong flavor is now reported as exactly that, rather than as a possible key problem. The `SECRET;` prefix is unchanged, so scripts that glob `SECRET;*` or grep for it keep working
 
 ### Behavior Changes
 
 - Existing `SECRET;` secrets keep decrypting; only newly written secrets use the new format
+- New: an end-to-end suite (`dart test -t e2e`) drives the real executable against a real project, pinning the contract shell scripts depend on — the `SECRET;` prefix, plaintext on the last line of stdout, errors on stderr, and exit codes
 - A secret is 12 bytes smaller: the version made it possible to drop the auth tag that was written twice
 - `pnv init` warns when the key storage directory is inside the project
 
