@@ -51,28 +51,28 @@ dart pub global activate pnv          # then: pnv <command>
 dart pub add pnv --dev                # then: dart run pnv <command>
 ```
 
-The binary is `bin/pnv.dart`. Note that its own usage text calls itself `secrets`
-(`CommandRunner('secrets', ...)` in `lib/src/pnv_runner.dart`) — cosmetic only, the command is `pnv`.
+The binary is `bin/pnv.dart`.
 
 Two global flags are stripped in `main()` before argument parsing, so they work in any position:
 `--loud` (verbose) and `--quiet`. No `--version`.
 
-Exit code is `0` on success, `1` on any failure, including a wrong decryption key.
+Exit code is `0` on success, `1` on any failure. **Trust the exit code**: as of 1.8.0 every command
+that cannot do what was asked exits non-zero and says which input it could not handle. Errors go to
+the logger, so `--quiet` silences them and they are captured like any other output.
 
 ### Non-interactive safety — read this before scripting pnv
 
-`pnv init`, `pnv create flavor` on an **existing** flavor, and `pnv delete flavor` without `--force`
-all prompt via `mason_logger`, which throws without a TTY:
+`pnv init` and any confirmation prompt go through `mason_logger`, which throws without a TTY:
 
 ```
 Bad state: No terminal attached to stdout.
 ```
 
 **Safe to run head-less:** `encrypt`, `decrypt`, `create key`, `generate env`, `generate dart`,
-`to-dart-define`, `create flavor --name <new-name>` (a name not already in `.pnvrc`).
+`to-dart-define`, `create flavor --name <name> --force`, `delete flavor --name <name> --force`.
 
-**Never safe head-less:** `init` (always prompts, even with everything already configured), and any
-`create flavor` / `delete flavor` that hits a confirmation.
+**Never safe head-less:** `init` — it always prompts, even when everything is already configured.
+Also `create flavor` on an existing name *without* `--force`, and `delete flavor` without `--force`.
 
 To set a project up in a non-interactive context, write `.pnvrc` yourself (it is plain JSON, format
 below) and call `create flavor --name <name>` per flavor. Do not reach for `init`.
@@ -124,11 +124,11 @@ wins (`CrypticCommand.secretFor`):
 With none of the three: `Invalid argument(s): Missing key, key file, or flavor.` — except
 `generate env --file`, which falls back to inferring the flavor from the filename (see below).
 
-There is effectively **no key validation**. `validateSecretKey` checks that a SHA-256 digest is 32
-bytes long, which is always true, so any string Dart's base64 decoder accepts is taken as a key —
-`--key aaaa` (3 bytes) encrypts and round-trips happily. A non-base64 key fails with a
-`FormatException`, not a helpful message. A *wrong* key fails at decrypt time with
-`Failed to decrypt value. Do you have the correct key?`.
+A key must be base64 and at least 12 bytes once decoded; anything else is refused by name
+(`Key is too short: 3 bytes, minimum is 12`). A *wrong* — but well formed — key is only detectable
+at decrypt time, and reports as `Failed to decrypt (<file> → <key>). The value is well formed, so
+this is most likely the wrong key.` A corrupt `SECRET;` token reports as malformed instead, and
+says so explicitly rather than blaming the key.
 
 ### `pnv init`
 
@@ -138,25 +138,30 @@ Interactive only. Prompts for the storage directory (default `~/.<pubspec name>`
 
 ### `pnv create key`
 
-Prints a fresh key to stdout and does nothing else — no file, no config. 12 cryptographically random
-bytes (`Random.secure`), base64url-encoded → a 16-character string like `kx_iAQ-nMD_72wfJ`.
+Prints a fresh key to stdout, newline-terminated, and does nothing else — no file, no config.
+32 cryptographically random bytes (`Random.secure`), base64url-encoded → a 44-character string
+(43 characters plus one `=` of padding).
 
-**That is 96 bits of entropy**, not 256. The AES-256 key is `SHA-256(base64decode(keyfile))`, so the
-cipher is AES-256 but the secret behind it is 96-bit. Fine against offline guessing; worth knowing if
-someone asks you whether this is "a 256-bit key".
+Keys created before 1.8.0 are 12 bytes (96 bits) and still work: every key is hashed to a 32-byte
+AES key with `SHA-256(base64decode(keyfile))`, so key length is the entropy of the secret, not the
+size of the cipher key. Rotating an old key gets you the full 256 bits.
 
 ### `pnv create flavor --name <name> [--force]`
 
 Writes `<storage>/<name>.key` with a fresh key and adds the flavor to `.pnvrc`. Prompts (⇒ dies
 head-less) if the name is already in `.pnvrc`. With no `--name` it prompts for one.
 
-`--force/-f` is declared in the arg parser and **never read by `run()`** — it does not suppress the
-overwrite prompt. Do not rely on it.
+`--force/-f` overwrites an existing flavor without prompting. Use it whenever there is no terminal;
+without it, an existing name prompts and therefore throws head-less.
+
+> **Overwriting a flavor destroys its key**, and with it every secret encrypted under that key.
+> There is no undo.
 
 ### `pnv delete flavor [--name <n>]... [--force]`
 
 Deletes the key file and the `.pnvrc` entry. `--name/-n` is repeatable. Without any `--name` it
 presents a multi-select prompt of existing flavors. Without `--force/-f` it asks to confirm each one.
+A name that is not a known flavor is refused with exit 1 and the list of known flavors.
 Irreversible: the key is gone, and every secret encrypted with it is unreadable forever.
 
 ### `pnv encrypt <value>... [key selection]`
@@ -185,17 +190,23 @@ strip — pass the token exactly as it appears in the YAML.
 ```
 
 At least one of `--file` / `--directory` is required. Output file name is
-`<input basename minus its last extension>.env` — `app.local.yaml` ⇒ `app.local.env`, **not**
-`local.env` as the README's examples claim. The output directory is created if missing and is *not*
-wiped.
+`<input basename minus its last extension>.env` — `app.local.yaml` ⇒ `app.local.env`. The output
+directory is created if missing and is *not* wiped.
 
 Key selection per mode:
 
 - **`--file` with no key flags** — pnv derives the flavor from the filename and looks it up. So
-  `pnv generate env -i envs/app.local.yaml -o dist` just works when flavor `local` exists.
+  `pnv generate env -i envs/app.local.yaml -o dist` just works when flavor `local` exists. If the
+  inferred flavor has no key the error names it.
 - **`--directory`** — with `--flavor`, only files whose filename-flavor is that flavor or one of its
   aliases are processed, all with that flavor's key. With no `--flavor`, **every** file is processed
   and each one's key is derived from its own filename — this is the "regenerate everything" mode.
+
+A `--flavor` that is not in `.pnvrc` is refused with exit 1 and the list of known flavors. It is not
+treated as "no filter" — before 1.8.0 it was, so a typo generated every environment on disk.
+
+The whole batch is rendered before any file is written, so a run that fails part way leaves the
+output directory untouched rather than half-populated.
 
 Filename ⇒ flavor (`FileMixin.flavorFrom`): if the basename has no dot, it *is* the flavor
 (`local.yaml` ⇒ `local`); otherwise the second-to-last extension is used
@@ -214,9 +225,11 @@ delegates here.
 -c, --class-name <Name>     override the class name; --file only
 ```
 
-> **The output directory is deleted recursively before writing.** Point it at a directory that
-> contains nothing but generated files. pnv aborts with exit 1 only if the directory contains a
-> subdirectory; loose unrelated *files* in it are destroyed without warning.
+> **The output directory is deleted recursively before writing.** pnv refuses, with exit 1, if it
+> holds anything pnv did not generate — ownership is checked by the
+> `// dart format off` header every generated file starts with, so re-running over pnv's own output
+> is fine and pointing `--output` at a source directory is not. Before 1.8.0 the only check was for
+> a subdirectory, and loose source files were destroyed silently.
 
 Output file is `<input basename minus extension>.dart` with the flavor segment stripped:
 `app.local.env` ⇒ `app.dart`, class `App`. `--class-name` applies only with `--file`.
@@ -224,22 +237,28 @@ Output file is `<input basename minus extension>.dart` with the flavor segment s
 Precedence inside `run()` is `--file` → `--flavor` (requires `--directory`) → `--directory`, first
 match wins and returns.
 
-> **`--directory` without `--flavor` generates only the FIRST file in the directory** — the loop
-> returns on its first iteration (`generate_dart_command.dart`). Two `.env` files in, one `.dart`
-> out, exit code 0, no warning. Always pass `--flavor` when using `--directory`, or call `--file`
-> once per input.
+Every env key must survive `toCamelCase()` into a legal Dart identifier. A key starting with a
+digit, a key that becomes a Dart keyword, and two keys colliding on one field name are each refused
+with exit 1 naming the offending key — rather than emitting a `.dart` file that does not compile.
 
 ### `pnv to-dart-define <file.env>...`
 
-Reads every file, concatenates the lines, prints a single space-separated
-`-DKEY=VALUE -DKEY=VALUE ` string on stdout for `dart`/`flutter build --dart-define`.
+```
+-l, --per-line              one -Dkey=value per line instead of one joined string
+```
 
-> **It silently drops any line whose value contains `=`.** It splits on *every* `=` and skips the
-> line unless there are exactly two parts — so `B64="aGVsbG8gd29ybGQ="` never reaches the output.
-> Base64 and URL-ish values are the common casualties. Empty values are dropped too. And it does not
-> strip trailing type comments, so a `PORT=8080 # int` line becomes `-DPORT=8080 # int`, which the
-> build tool will mis-parse. `generate dart` handles all of these correctly (it splits on the first
-> `=` only); `to-dart-define` has not been fixed. Prefer `generate dart` where you can.
+Reads every file, concatenates the lines, and prints `-DKEY=VALUE` arguments on stdout for
+`dart`/`flutter build --dart-define`. Values are split on the first `=` only, unquoted, unescaped,
+and stripped of any trailing `# type` comment.
+
+> **A value containing whitespace cannot survive `$(pnv to-dart-define .env)`.** The shell
+> word-splits the *result* of a command substitution, and no quoting inside that result prevents it
+> — this is a property of the shell, not something pnv can fix. pnv warns on stderr, naming the
+> keys affected. Use `--per-line` when any value has a space in it:
+>
+> ```bash
+> pnv to-dart-define --per-line .env | xargs flutter build apk
+> ```
 
 `pnv create-key` (hyphenated) is a hidden deprecated alias for `create key`.
 
@@ -296,6 +315,9 @@ DB_NESTED_DEEP_KEY="deep-value"
   `Unsupported value type`. **Lists are not supported.**
 - Only string values starting with `SECRET;` are decrypted. Everything else is copied verbatim, so
   non-secret config lives in the same file.
+- **Values are escaped**: `\` ⇒ `\\`, `"` ⇒ `\"`, newline ⇒ `\n`, carriage return ⇒ `\r`. So a
+  multi-line secret (a PEM key, a JSON blob) survives as one `.env` entry. Before 1.8.0 nothing was
+  escaped, so a quote produced unparseable output and a newline truncated the value at the break.
 - The `# .` / `# .db` breadcrumb lines are emitted before each nested block. They are comments; the
   `.env` consumers here ignore them.
 
@@ -315,11 +337,10 @@ to inference. Inference without a declaration: `int.tryParse` succeeds ⇒ int; 
 ⇒ bool; **everything else ⇒ String, including decimals** — `1.5` becomes
 `String.fromEnvironment`, because Dart has no `double.fromEnvironment`.
 
-> **Comment attribution is substring-based and the last match wins.** `envEntriesFromYaml` finds a
-> key's comment by scanning the enclosing YAML block for a line *containing* `<key>:`, so a nested
-> `db.port: # int` will attach `# int` to an unrelated top-level `port:` further up the same file.
-> Symptom: a stray ` # int` in the `.env` and a wrong type in the generated Dart. If you see one,
-> rename one of the colliding keys.
+A `#` inside a double-quoted value is part of the value, not a type declaration, so a secret
+containing one is safe. Comments are read from the YAML value node's own source span — before 1.8.0
+they were found by scanning the block for a line *containing* `<key>:` with the last match winning,
+so a nested `db.port: # int` typed an unrelated top-level `port:`.
 
 ### Generated Dart
 
@@ -346,8 +367,8 @@ The `.env` files are the plaintext, and those are what must be gitignored.
 **Set up a project without prompts.** Write `.pnvrc` next to `pubspec.yaml`, then:
 
 ```bash
-pnv create flavor --name local
-pnv create flavor --name production
+pnv create flavor --name local --force
+pnv create flavor --name production --force
 ```
 
 **Add a secret to an existing YAML.**
@@ -359,14 +380,17 @@ pnv encrypt "the-new-value" --flavor local     # paste the SECRET;... line into 
 **Full build path.**
 
 ```bash
-pnv generate env  --directory envs --output dist --flavor production
-pnv generate dart --directory dist --output lib/envs --flavor production
-flutter build apk $(pnv to-dart-define dist/app.production.env)
+pnv generate env  --directory envs --output dist       --flavor production
+pnv generate dart --directory dist --output lib/envs   --flavor production
+pnv to-dart-define --per-line dist/app.production.env | xargs flutter build apk
 ```
 
-**Rotate a key.** There is no rotate command. Decrypt every secret with the old key, `delete flavor`,
-`create flavor`, re-encrypt each value, replace the tokens. Do the decrypt pass *first* — deleting
-the flavor destroys the key.
+`--per-line | xargs` rather than `$(...)` because command substitution word-splits any value
+containing a space. Use `$(...)` only when you know every value is a single word.
+
+**Rotate a key.** There is no rotate command. Decrypt every secret with the old key,
+`delete flavor --force`, `create flavor --force`, re-encrypt each value, replace the tokens. Do the
+decrypt pass *first* — deleting the flavor destroys the key, and with it every secret under it.
 
 **Onboard a teammate.** `.pnvrc` and the YAML are already in the repo; they need only the key file
 copied into their `storage` directory out of band.

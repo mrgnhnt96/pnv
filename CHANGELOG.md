@@ -1,5 +1,35 @@
 # Change Log
 
+## 1.8.0 | 08.13.26
+
+### Behavior Changes
+
+- Commands that cannot do what was asked now exit non-zero and name the input they could not handle. Several previously printed a success line and exited `0`
+- `generate env` refuses an unrecognised `--flavor` instead of treating it as "no filter". A typo used to generate **every** environment on disk, production included
+- `generate env` renders the whole batch before writing any of it, so a failure part way leaves nothing behind instead of a half-populated output directory
+- `generate dart` refuses an output directory holding files it did not generate, rather than deleting them
+- `generate dart` fails on an env key that cannot become a valid Dart identifier, instead of emitting a file that does not compile
+- Values written to `.env` are escaped, so a value containing a quote or a newline survives intact
+- `pnv create key` generates 32 random bytes instead of 12. Existing 12-byte keys keep working and existing secrets are unaffected
+- Key files are created with `0600` permissions
+- Errors are reported through the logger rather than `print`, so they respect `--quiet` and go to stderr
+
+### Features
+
+- Add `--per-line` to `to-dart-define`, for values containing whitespace, which cannot survive `$(...)`
+
+### Fixes
+
+- `to-dart-define` no longer drops values containing `=`, such as base64, and no longer leaks trailing `# type` comments into the argument
+- `generate dart --directory` generates every file rather than only the first
+- A type comment attaches only to its own key. A nested `db.port: # int` used to type an unrelated top-level `port:`
+- `create flavor --force` overwrites without prompting, so it works where there is no terminal
+- `delete flavor` fails on a flavor that does not exist instead of reporting success
+- Keys that are not valid base64, or are too short, are rejected by name. Key validation measured the hash, which is always 32 bytes, so it accepted everything
+- Decryption failures distinguish a corrupt value from a wrong key, and name the file and key that failed
+- The CLI reports its own name as `pnv` rather than `secrets`
+- `create key` terminates its output with a newline
+
 ## 1.7.2 | 12.18.25
 
 ### Fixes

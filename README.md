@@ -187,6 +187,15 @@ The output would be:
 -DSECRET=my_secret
 ```
 
+> [!WARNING]
+> A value containing a space cannot survive `$(pnv to-dart-define .env)`. The shell splits the *result* of a command substitution into words, and no quoting inside that result prevents it. pnv warns and names the keys affected.
+>
+> Use `--per-line` with `xargs` whenever any value might contain whitespace:
+>
+> ```bash
+> pnv to-dart-define --per-line .env | xargs flutter build apk
+> ```
+
 ## Env Yaml
 
 You can organize your encrypted secrets within a YAML file for better structure and readability. pnv will generate environment variables by combining all the nested keys, separated by underscores, and converting them to uppercase. Here are examples of how you can structure your YAML file:
@@ -288,6 +297,8 @@ pnv uses AES-GCM for encryption and decryption, providing strong confidentiality
 - **Algorithm**: AES (Advanced Encryption Standard) in GCM (Galois/Counter Mode).
 - **Initialization Vector (IV)**: A random IV is generated for each encryption operation, ensuring that the same plaintext will produce a different ciphertext each time.
 - **Authentication Tag**: AES-GCM produces an authentication tag that verifies the integrity and authenticity of the encrypted data.
+- **Key**: `pnv create key` generates 32 random bytes from a secure source. The AES key is the SHA-256 of the decoded key, so key files created before `1.8.0` are 12 bytes and still work — rotating one gets you the full 256 bits of entropy.
+- **Key files** are created readable only by their owner (`0600`).
 
 ### Encryption
 
