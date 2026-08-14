@@ -213,15 +213,20 @@ pnv generate env --directory env_files --output env_files/outputs
 This would generate the following environment variable:
 
 ```dotenv
-# env_files/outputs/local.env
-SECRET=<decoded_data>
-API_SCHEMA=http
-API_HOST=localhost
+# env_files/outputs/app.local.env
+SECRET="<decoded_data>"
+# .
+# .api
+API_SCHEMA="http"
+API_HOST="localhost"
 API_PORT=8080
-API_KEY=<decoded_data>
+API_KEY="<decoded_data>"
 ```
 
 When the `generate env` command is called, pnv will combine the keys to create flat environment variable names, which makes them compatible with most CI/CD tools and other environment management systems.
+
+> [!NOTE]
+> The output file is named after the input file, so `app.local.yaml` produces `app.local.env`. String values are quoted; numbers and booleans are not.
 
 > [!TIP]
 >
