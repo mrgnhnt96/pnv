@@ -93,8 +93,6 @@ void main() {
 
     group('runs successfully', () {
       const expectedContent = '''
-# .
-# .my
 MY_SECRET="$decryptedSecret"
 ''';
 
@@ -242,8 +240,6 @@ my:
         await run();
 
         const expected = '''
-# .
-# .my
 MY_SECRET= # string
 MY_NUMBER=0 # int
 ''';

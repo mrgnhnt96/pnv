@@ -143,11 +143,11 @@ mixin FileMixin {
 
     void writeEntry(EnvEntries entry) {
       if (entry.entries case final entries?) {
-        env.writeln('# .${entry.parents.join('.')}');
-        if (entries case [final sub, ...]) {
-          env.writeln('# .${sub.parents.join('.')}');
-        }
-
+        // No breadcrumb comment for the block. Keys carry their full path as a
+        // prefix already, so `# .db` above `DB_HOST=` said nothing the next
+        // line did not, and the `# .` that preceded it was the same string
+        // every time. They also collided with the `# type` convention, which
+        // is the one comment in this file that means something.
         for (final sub in entries) {
           writeEntry(sub);
         }
