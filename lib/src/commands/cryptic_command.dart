@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
@@ -9,6 +10,8 @@ import 'package:pnv/src/crypto/validate_secret_key.dart';
 import 'package:pnv/src/mixins/platform_mixin.dart';
 import 'package:pnv/src/mixins/pnv_config_mixin.dart';
 import 'package:pnv/src/mixins/pubspec_mixin.dart';
+import 'package:pnv/src/pnv_exception.dart';
+import 'package:pnv/utils/constants.dart';
 
 abstract class CrypticCommand extends Command<int>
     with PlatformMixin, PubspecMixin, PnvConfigMixin {
@@ -49,7 +52,7 @@ abstract class CrypticCommand extends Command<int>
     final values = argResults.rest;
 
     if (values.isEmpty) {
-      throw ArgumentError('No values to $name provided.');
+      throw PnvException('No values to $name provided.');
     }
 
     return values;
@@ -61,26 +64,33 @@ abstract class CrypticCommand extends Command<int>
         flavor: flavor,
       );
 
-  List<int> get secretBytes {
-    final bytes = base64.decode(secret);
-
-    if (!validateSecretKey(bytes)) {
-      throw ArgumentError('Key is not expected length.');
-    }
-
-    return bytes;
-  }
+  List<int> get secretBytes => decodeSecret(secret);
 
   List<int> get keyHash => keyHashFor(secret);
 
   List<int> keyHashFor(String secret) {
-    final bytes = base64.decode(secret);
+    return sha256.convert(decodeSecret(secret)).bytes;
+  }
 
-    if (!validateSecretKey(bytes)) {
-      throw ArgumentError('Key is not expected length.');
+  Uint8List decodeSecret(String secret) {
+    final Uint8List bytes;
+    try {
+      bytes = base64.decode(secret);
+    } on FormatException {
+      throw const PnvException(
+        'Key is not valid base64. A key looks like the output of '
+        '`pnv create key`.',
+      );
     }
 
-    return sha256.convert(bytes).bytes;
+    if (!validateSecretKey(bytes)) {
+      throw PnvException(
+        'Key is too short: ${bytes.length} bytes, minimum is $minKeyLength. '
+        'Generate one with `pnv create key`.',
+      );
+    }
+
+    return bytes;
   }
 
   String secretFor({
@@ -96,7 +106,7 @@ abstract class CrypticCommand extends Command<int>
     if (flavor?.trim() case final String flavor when flavor.isNotEmpty) {
       final config = pnvConfig();
       if (config == null) {
-        throw ArgumentError(
+        throw const PnvException(
           'Failed to find storage directory. Try running '
           '`pnv init` and try again.',
         );
@@ -110,7 +120,7 @@ abstract class CrypticCommand extends Command<int>
         final config = pnvConfig();
 
         if (config == null) {
-          throw ArgumentError(
+          throw const PnvException(
             'Failed to find pnv config. Try running '
             '`pnv init` and try again.',
           );
@@ -134,7 +144,7 @@ abstract class CrypticCommand extends Command<int>
       final file = fs.file(keyFile);
 
       if (!file.existsSync()) {
-        throw ArgumentError(
+        throw PnvException(
           '❌ Key file "$keyFile" does not exist or was not readable.',
         );
       }
@@ -142,6 +152,6 @@ abstract class CrypticCommand extends Command<int>
       return file.readAsStringSync().trim();
     }
 
-    throw ArgumentError('Missing key, key file, or flavor.');
+    throw const PnvException('Missing key, key file, or flavor.');
   }
 }
