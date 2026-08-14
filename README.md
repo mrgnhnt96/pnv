@@ -4,6 +4,10 @@
 
 **pnv** is a Dart package designed for developers to easily encrypt and decrypt secrets, manage environment files, and generate Dart Define arguments. The goal of pnv is to simplify the process of handling environment secrets and configuration securely and use those secrets in your Dart or Flutter projects.
 
+> [!TIP]
+> Working with an AI coding agent? Point it at [`llms.txt`](llms.txt) — a complete, verified
+> reference for every command, the config format, the encryption wire format, and the footguns.
+
 ## Features
 
 - **Encryption & Decryption**: Securely encrypt and decrypt secrets using symmetric keys.
