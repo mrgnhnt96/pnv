@@ -28,9 +28,18 @@ class CreateFlavorCommand extends Command<int> {
 
   String? get flavorName => argResults?['name'] as String?;
 
+  bool get force => switch (argResults?['force']) {
+        true => true,
+        _ => false,
+      };
+
   @override
   int run() {
-    final success = flavorHandler.create(flavorName ?? '', log: true);
+    final success = flavorHandler.create(
+      flavorName ?? '',
+      log: true,
+      force: force,
+    );
 
     if (!success) {
       return 1;

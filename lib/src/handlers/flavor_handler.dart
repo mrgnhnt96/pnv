@@ -39,6 +39,7 @@ class FlavorHandler
     String flavor, {
     PnvConfig? config,
     bool log = false,
+    bool force = false,
   }) {
     config ??= pnvConfig();
 
@@ -72,7 +73,9 @@ class FlavorHandler
       return false;
     }
 
-    if (canCreateResult.exists) {
+    // `--force` exists so this command can run unattended. Prompting here would
+    // throw on a host with no terminal, which is exactly where a script runs.
+    if (canCreateResult.exists && !force) {
       logger.err('Flavor already exists.');
       final overwrite = logger.confirm(
         red.wrap('Do you want to overwrite the existing flavor?'),
@@ -226,7 +229,8 @@ class FlavorHandler
     saveConfig(config);
   }
 
-  void delete(String flavor) {
+  /// Returns false when there was no such flavor to delete.
+  bool delete(String flavor) {
     final config = pnvConfig();
 
     if (config == null) {
@@ -235,12 +239,20 @@ class FlavorHandler
     }
 
     final file = storageKeyFile(flavor, config);
+    final hadKey = file.existsSync();
+    final hadEntry = config.flavors.containsKey(flavor);
 
-    if (file.existsSync()) {
+    if (!hadKey && !hadEntry) {
+      return false;
+    }
+
+    if (hadKey) {
       file.deleteSync();
     }
 
     config.flavors.remove(flavor);
     saveConfig(config);
+
+    return true;
   }
 }

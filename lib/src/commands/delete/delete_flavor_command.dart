@@ -64,6 +64,17 @@ class DeleteFlavorCommand extends Command<int> {
       return 1;
     }
 
+    final known = flavorHandler.flavors();
+    final missing = flavors.where((e) => !known.contains(e)).toList();
+
+    if (missing.isNotEmpty) {
+      logger.err(
+        'No such flavor: ${missing.map((e) => cyan.wrap(e)).join(', ')}. '
+        'Known flavors: ${known.join(', ')}',
+      );
+      return 1;
+    }
+
     for (final flavor in flavors) {
       if (!force) {
         final confirm = logger.confirm(
@@ -79,7 +90,12 @@ class DeleteFlavorCommand extends Command<int> {
       }
 
       final progress = logger.progress('Deleting flavor: ${cyan.wrap(flavor)}');
-      flavorHandler.delete(flavor);
+
+      if (!flavorHandler.delete(flavor)) {
+        progress.fail('No such flavor: ${cyan.wrap(flavor)}');
+        return 1;
+      }
+
       progress.complete('Deleted flavor: ${cyan.wrap(flavor)}');
     }
 
