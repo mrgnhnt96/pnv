@@ -7,6 +7,23 @@ import 'package:pnv/src/models/pnv_config.dart';
 import 'package:pnv/src/pnv_exception.dart';
 import 'package:yaml/yaml.dart';
 
+/// The flavor a file name implies.
+///
+/// `local.yaml` is `local`; `app.local.yaml` is `local`, taken from the
+/// second-to-last extension.
+String flavorFromPath(String path) {
+  if (p.basenameWithoutExtension(path) case final name
+      when !name.contains('.')) {
+    return name;
+  }
+
+  return p
+      .extension(path, 2)
+      .replaceAll(RegExp(r'\.env$'), '')
+      .replaceAll(RegExp(r'\.ya?ml$'), '')
+      .replaceAll(RegExp(r'^\.'), '');
+}
+
 mixin FileMixin {
   Logger get logger;
   FileSystem get fs;
@@ -20,20 +37,7 @@ mixin FileMixin {
     List<int>? keyBytes,
   });
 
-  String flavorFrom(String path) {
-    if (p.basenameWithoutExtension(path) case final name
-        when !name.contains('.')) {
-      return name;
-    }
-
-    final ext = p.extension(path, 2);
-    final sanitized = ext
-        .replaceAll(RegExp(r'\.env$'), '')
-        .replaceAll(RegExp(r'\.ya?ml$'), '')
-        .replaceAll(RegExp(r'^\.'), '');
-
-    return sanitized;
-  }
+  String flavorFrom(String path) => flavorFromPath(path);
 
   Future<bool> actForFlavor({
     required String directory,

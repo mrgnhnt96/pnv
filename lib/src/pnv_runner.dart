@@ -7,7 +7,9 @@ import 'package:pnv/src/commands/delete_command.dart';
 import 'package:pnv/src/commands/encrypt_command.dart';
 import 'package:pnv/src/commands/generate/deprecated_generate_env_command.dart';
 import 'package:pnv/src/commands/generate/generate_command.dart';
+import 'package:pnv/src/commands/get_command.dart';
 import 'package:pnv/src/commands/init_command.dart';
+import 'package:pnv/src/commands/set_command.dart';
 import 'package:pnv/src/commands/to_dart_define_command.dart';
 import 'package:pnv/src/handlers/flavor_handler.dart';
 import 'package:pnv/src/pnv_exception.dart';
@@ -26,6 +28,8 @@ class PnvRunner extends CommandRunner<int> {
     addCommand(CreateCommand(logger: logger, flavorHandler: flavorHandler));
     addCommand(DeleteCommand(logger: logger, flavorHandler: flavorHandler));
     addCommand(ToDartDefineCommand(fs: fs, logger: logger));
+    addCommand(SetCommand(fs: fs, logger: logger));
+    addCommand(GetCommand(fs: fs, logger: logger));
     addCommand(
       InitCommand(logger: logger, fs: fs, flavorHandler: flavorHandler),
     );
