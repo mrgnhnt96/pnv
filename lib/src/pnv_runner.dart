@@ -16,7 +16,7 @@ class PnvRunner extends CommandRunner<int> {
     required FileSystem fs,
     required Logger logger,
     required FlavorHandler flavorHandler,
-  }) : super('secrets', 'Encrypt and decrypt secrets.') {
+  }) : super('pnv', 'Encrypt and decrypt secrets.') {
     addCommand(EncryptCommand(logger: logger, fs: fs));
     addCommand(DecryptCommand(logger: logger, fs: fs));
     addCommand(GenerateCommand(logger: logger, fs: fs));

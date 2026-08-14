@@ -17,7 +17,7 @@ class CreateKeyCommand extends Command<int> with CryptoMixin {
 
   @override
   Future<int> run() async {
-    logger.write(newKey);
+    logger.write('$newKey\n');
 
     return 0;
   }
