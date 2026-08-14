@@ -393,7 +393,7 @@ pnv uses AES-GCM for encryption and decryption, providing strong confidentiality
 - **Initialization Vector (IV)**: A random IV is generated for each encryption operation, ensuring that the same plaintext will produce a different ciphertext each time.
 - **Authentication Tag**: AES-GCM produces an authentication tag that verifies the integrity and authenticity of the encrypted data.
 - **Token format**: `SECRET;v1:` + base64(`keyId[4]` || `iv[12]` || `ciphertext` || `tag[16]`). The key id is a domain-separated hash of the key, never of the AES key itself, so it identifies the key without revealing any part of it. Older `SECRET;` values keep decrypting, and **every version starts with `SECRET;`** so existing `SECRET;*` globs and greps keep working.
-- **Key**: `pnv create key` generates 32 random bytes from a secure source. The AES key is the SHA-256 of the decoded key, so key files created before `1.8.0` are 12 bytes and still work — rotating one gets you the full 256 bits of entropy.
+- **Key**: `pnv create key` generates 32 random bytes from a secure source. The AES key is the SHA-256 of the decoded key, so key files created before `2.0.0` are 12 bytes and still work — rotating one gets you the full 256 bits of entropy.
 - **Key files** are created readable only by their owner (`0600`).
 
 ### Encryption

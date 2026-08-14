@@ -63,7 +63,7 @@ The binary is `bin/pnv.dart`.
 Two global flags are stripped in `main()` before argument parsing, so they work in any position:
 `--loud` (verbose) and `--quiet`. No `--version`.
 
-Exit code is `0` on success, `1` on any failure. **Trust the exit code**: as of 1.8.0 every command
+Exit code is `0` on success, `1` on any failure. **Trust the exit code**: as of 2.0.0 every command
 that cannot do what was asked exits non-zero and says which input it could not handle. Errors go to
 the logger, so `--quiet` silences them and they are captured like any other output.
 
@@ -279,7 +279,7 @@ Prints a fresh key to stdout, newline-terminated, and does nothing else — no f
 32 cryptographically random bytes (`Random.secure`), base64url-encoded → a 44-character string
 (43 characters plus one `=` of padding).
 
-Keys created before 1.8.0 are 12 bytes (96 bits) and still work: every key is hashed to a 32-byte
+Keys created before 2.0.0 are 12 bytes (96 bits) and still work: every key is hashed to a 32-byte
 AES key with `SHA-256(base64decode(keyfile))`, so key length is the entropy of the secret, not the
 size of the cipher key. Rotating an old key gets you the full 256 bits.
 
@@ -340,7 +340,7 @@ Key selection per mode:
   and each one's key is derived from its own filename — this is the "regenerate everything" mode.
 
 A `--flavor` that is not in `.pnvrc` is refused with exit 1 and the list of known flavors. It is not
-treated as "no filter" — before 1.8.0 it was, so a typo generated every environment on disk.
+treated as "no filter" — before 2.0.0 it was, so a typo generated every environment on disk.
 
 The whole batch is rendered before any file is written, so a run that fails part way leaves the
 output directory untouched rather than half-populated.
@@ -365,7 +365,7 @@ delegates here.
 > **The output directory is deleted recursively before writing.** pnv refuses, with exit 1, if it
 > holds anything pnv did not generate — ownership is checked by the
 > `// dart format off` header every generated file starts with, so re-running over pnv's own output
-> is fine and pointing `--output` at a source directory is not. Before 1.8.0 the only check was for
+> is fine and pointing `--output` at a source directory is not. Before 2.0.0 the only check was for
 > a subdirectory, and loose source files were destroyed silently.
 
 Output file is `<input basename minus extension>.dart` with the flavor segment stripped:
@@ -463,7 +463,7 @@ DB_NESTED_DEEP_KEY="deep-value"
 - Only string values starting with `SECRET;` are decrypted. Everything else is copied verbatim, so
   non-secret config lives in the same file.
 - **Values are escaped**: `\` ⇒ `\\`, `"` ⇒ `\"`, newline ⇒ `\n`, carriage return ⇒ `\r`. So a
-  multi-line secret (a PEM key, a JSON blob) survives as one `.env` entry. Before 1.8.0 nothing was
+  multi-line secret (a PEM key, a JSON blob) survives as one `.env` entry. Before 2.0.0 nothing was
   escaped, so a quote produced unparseable output and a newline truncated the value at the break.
 - Nesting leaves no trace of its own in the output — the key prefix already carries the full path.
   Comment lines in a hand-edited `.env` are still skipped on read, so adding your own is safe. The
@@ -486,7 +486,7 @@ to inference. Inference without a declaration: `int.tryParse` succeeds ⇒ int; 
 `String.fromEnvironment`, because Dart has no `double.fromEnvironment`.
 
 A `#` inside a double-quoted value is part of the value, not a type declaration, so a secret
-containing one is safe. Comments are read from the YAML value node's own source span — before 1.8.0
+containing one is safe. Comments are read from the YAML value node's own source span — before 2.0.0
 they were found by scanning the block for a line *containing* `<key>:` with the last match winning,
 so a nested `db.port: # int` typed an unrelated top-level `port:`.
 

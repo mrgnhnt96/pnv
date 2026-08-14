@@ -227,8 +227,8 @@ mixin FileMixin {
   Future<void> writeEnvFile(File outputFile, String content) async {
     final outDir = outputFile.parent;
 
-    if (!await outDir.exists()) {
-      await outDir.create(recursive: true);
+    if (!outDir.existsSync()) {
+      outDir.createSync(recursive: true);
     }
 
     await outputFile.writeAsString(content);

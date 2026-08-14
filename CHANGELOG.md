@@ -1,6 +1,20 @@
 # Change Log
 
-## 1.9.0 | 08.13.26
+## 2.0.0 | 08.13.26
+
+A major version because several changes are breaking for automation: commands that used to exit `0` on input they mishandled now exit non-zero, the generated `.env` format changed, and `generate dart` refuses input it previously accepted. Existing secrets keep decrypting.
+
+### Breaking Changes
+
+- Commands that cannot do what was asked now exit non-zero and name the input they could not handle. Several previously printed a success line and exited `0`, so a pipeline that passed before may now fail — where it was already producing the wrong result
+- `generate env` refuses an unrecognised `--flavor` instead of treating it as "no filter". A typo used to generate **every** environment on disk, production included
+- `generate dart` fails on an env key that cannot become a valid Dart identifier, instead of emitting a file that does not compile
+- `generate dart` refuses an output directory holding files it did not generate, rather than deleting them
+- Values written to `.env` are escaped, so a value containing a quote or a newline survives intact. Anything parsing the generated `.env` should expect `\"` and `\n`
+- Generated `.env` files no longer carry `# .` / `# .path` breadcrumb comments before each nested block. The key prefix already carried the full path, and they collided with the `# type` convention
+- New secrets are written as `SECRET;v1:` and **cannot be read by pnv 1.7.x**, so upgrade the whole team together. Existing `SECRET;` secrets keep decrypting, and the `SECRET;` prefix is unchanged, so scripts that glob `SECRET;*` or grep for it keep working
+- `pnv create key` generates 32 random bytes instead of 12. Existing 12-byte keys keep working and existing secrets are unaffected
+- Errors are reported through the logger rather than `print`, so they go to stderr and respect `--quiet`
 
 ### Features
 
@@ -10,37 +24,15 @@
 - **`pnv import`** — build an encrypted `.yaml` from an existing `.env`, so adopting pnv is one command rather than one `encrypt` per value
 - **`pnv show`** — print a file with its secrets decrypted, for use as a git textconv driver so `git diff` on a secrets file is readable
 - **`pnv init` is scriptable** — `--storage`, repeatable `--flavor`, `--yes` and `--gitignore`. It was the only command that could not run without a terminal
-- Secrets are now written as `SECRET;v1:`, carrying a version and a four-byte key fingerprint. A secret encrypted under the wrong flavor is now reported as exactly that, rather than as a possible key problem. The `SECRET;` prefix is unchanged, so scripts that glob `SECRET;*` or grep for it keep working
-
-### Behavior Changes
-
-- Existing `SECRET;` secrets keep decrypting; only newly written secrets use the new format
-- New: an end-to-end suite (`dart test -t e2e`) drives the real executable against a real project, pinning the contract shell scripts depend on — the `SECRET;` prefix, plaintext on the last line of stdout, errors on stderr, and exit codes
-- A secret is 12 bytes smaller: the version made it possible to drop the auth tag that was written twice
-- `pnv init` warns when the key storage directory is inside the project
-
-## 1.8.0 | 08.13.26
-
-### Behavior Changes
-
-- Commands that cannot do what was asked now exit non-zero and name the input they could not handle. Several previously printed a success line and exited `0`
-- `generate env` refuses an unrecognised `--flavor` instead of treating it as "no filter". A typo used to generate **every** environment on disk, production included
-- `generate env` renders the whole batch before writing any of it, so a failure part way leaves nothing behind instead of a half-populated output directory
-- `generate dart` refuses an output directory holding files it did not generate, rather than deleting them
-- `generate dart` fails on an env key that cannot become a valid Dart identifier, instead of emitting a file that does not compile
-- Values written to `.env` are escaped, so a value containing a quote or a newline survives intact
-- `pnv create key` generates 32 random bytes instead of 12. Existing 12-byte keys keep working and existing secrets are unaffected
-- Key files are created with `0600` permissions
-- Errors are reported through the logger rather than `print`, so they respect `--quiet` and go to stderr
-- Generated `.env` files no longer carry `# .` / `# .path` breadcrumb comments before each nested block. The key prefix already carried the full path, and they collided with the `# type` convention. Comment lines are still skipped when reading a `.env`
-
-### Features
-
 - Add `--per-line` to `to-dart-define`, for values containing whitespace, which cannot survive `$(...)`
+- Secrets carry a version and a four-byte key fingerprint, so a secret encrypted under the wrong flavor is reported as exactly that rather than as a possible key problem
+- Key files are created with `0600` permissions
+- `pnv init` warns when the key storage directory is inside the project
 
 ### Fixes
 
 - `to-dart-define` no longer drops values containing `=`, such as base64, and no longer leaks trailing `# type` comments into the argument
+- `generate env` renders the whole batch before writing any of it, so a failure part way leaves nothing behind instead of a half-populated output directory
 - `generate dart --directory` generates every file rather than only the first
 - A type comment attaches only to its own key. A nested `db.port: # int` used to type an unrelated top-level `port:`
 - `create flavor --force` overwrites without prompting, so it works where there is no terminal
@@ -49,6 +41,12 @@
 - Decryption failures distinguish a corrupt value from a wrong key, and name the file and key that failed
 - The CLI reports its own name as `pnv` rather than `secrets`
 - `create key` terminates its output with a newline
+- A secret is 12 bytes smaller: the version made it possible to drop the auth tag that was written twice
+
+### Chore
+
+- An end-to-end suite (`dart test -t e2e`) drives the real executable against a real project, pinning the contract shell scripts depend on — the `SECRET;` prefix, plaintext on the last line of stdout, errors on stderr, and exit codes
+- `llms.txt` ships with the package: a complete, verified reference for AI coding agents
 
 ## 1.7.2 | 12.18.25
 
