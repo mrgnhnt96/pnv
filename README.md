@@ -11,7 +11,9 @@
 ## Features
 
 - **Encryption & Decryption**: Securely encrypt and decrypt secrets using symmetric keys.
-- **Key Management**: Generate encryption keys for secure use across environments.
+- **In-place editing**: `pnv set` and `pnv get` work on the file directly, preserving comments and formatting.
+- **Safety checks**: `pnv verify` refuses to let a plaintext secret sit in a file you are about to publish.
+- **Key Management**: Generate encryption keys, and rotate them with a single command.
 - **Environment File Generation**: Generate `.env` files from `.yaml` configurations.
 - **Dart Define Conversion**: Easily convert `.env` files to Dart Define arguments for configuration during builds.
 
@@ -53,12 +55,26 @@ pnv <command> [arguments]
 
 ### Commands
 
+Working with a secrets file:
+
+- **`set`**: Encrypt a value straight into a `.yaml` file, in place.
+- **`get`**: Read one value back out, decrypted.
+- **`show`**: Print a whole file with its secrets decrypted.
+- **`verify`**: Check that a file is safe to commit publicly.
+- **`rotate`**: Re-encrypt a file or directory under a different key.
+- **`import`**: Build an encrypted `.yaml` from an existing `.env`.
+
+Setup and keys:
+
 - **`init`**: Initialize a pnv configuration file.
 - **`create key`**: Create a new encryption key to use with pnv.
 - **`create flavor`**: Create a new flavor associated with a new encryption key.
+- **`delete flavor`**: Delete a flavor.
+
+Values and build output:
+
 - **`encrypt`**: Encrypt a secret using a previously generated key.
 - **`decrypt`**: Decrypt a secret using the correct key.
-- **`delete flavor`**: Delete a flavor.
 - **`generate env`**: Generate a `.env` file from a `.yaml` file.
 - **`generate dart`**: Generate a `dart` file from a `.env` file.
 - **`to-dart-define`**: Convert an `.env` file to Dart Define arguments for use in a Dart build.
@@ -80,6 +96,15 @@ pnv init
 ```
 
 This command will prompt you for the directory you'd like to store the encryption keys. By default, they will be saved `~/.<project-name>`. These settings will be saved in a `.pnvrc` file in the root of your project (next to your `pubspec.yaml`).
+
+> [!TIP]
+> For CI, a Docker build, or a project template, pass everything up front and it will not prompt:
+>
+> ```bash
+> pnv init --storage ~/.my_project --flavor local --flavor production --yes --gitignore
+> ```
+>
+> `--gitignore` adds `*.key` and `*.key.previous` to `.gitignore`, which is where the leak actually happens.
 
 ### Create a Flavor
 
@@ -133,9 +158,22 @@ The flavor name will be used as a reference to encrypt/decrypt secrets. You can 
 >
 > All flavors and supported extensions must be unique. An error will be thrown if a flavor or extension is already in use.
 
+### Adding a Secret
+
+The quickest way to add a secret is to write it straight into the file:
+
+```bash
+pnv set app.api-key "my_secret" --file envs/app.local.yaml
+```
+
+The flavor comes from the file name, so `app.local.yaml` uses the `local` key. Comments, key order and indentation are left alone, and groups that do not exist yet are created. Read one back with `pnv get app.api-key --file envs/app.local.yaml`, or see the whole file decrypted with `pnv show envs/app.local.yaml`.
+
+> [!TIP]
+> For a value too long or awkward to quote, pipe it in: `pbpaste | pnv set app.api-key --file envs/app.local.yaml --stdin`
+
 ### Encrypting a Secret
 
-To encrypt a secret value:
+To encrypt a value without writing it anywhere:
 
 ```bash
 pnv encrypt "my_secret" --flavor <flavor_name>
@@ -195,6 +233,65 @@ The output would be:
 > ```bash
 > pnv to-dart-define --per-line .env | xargs flutter build apk
 > ```
+
+## Checking a File Is Safe to Publish
+
+pnv's whole premise is that the encrypted `.yaml` can live in a public repo. `pnv verify` is what checks that premise actually holds:
+
+```bash
+pnv verify
+```
+
+It reads without writing, and exits non-zero if anything is wrong:
+
+- a secret that does not decrypt under the flavor its file name implies — which usually means it was pasted in from another environment
+- a corrupt `SECRET;` value, reported as corrupt rather than as a key problem
+- a value that **looks** like a secret sitting in plaintext, matched by shape (`sk-`, `ghp_`, `AKIA`, JWTs, private key blocks, URLs carrying a password) or by a key name that promises one
+- key storage inside the project directory
+
+That makes it a natural pre-commit hook or CI step. If a value is meant to be public, say so with a trailing comment and pnv will leave it alone:
+
+```yaml
+demo-token: sk-live-not-a-real-key # plaintext, used in the public demo
+```
+
+## Rotating a Key
+
+```bash
+pnv rotate --directory envs --from production --to production-2026   # to another flavor
+pnv rotate --directory envs --from production --new-key              # fresh key, same flavor
+```
+
+Everything is re-encrypted in memory before anything is written, so a run that fails part way leaves the files untouched. `--new-key` keeps the old key at `<flavor>.key.previous`; nothing deletes a key for you.
+
+Add `--dry-run` to see what would change.
+
+## Adopting pnv in an Existing Project
+
+```bash
+pnv import .env --output envs/app.local.yaml
+```
+
+Every value is encrypted by default, because over-encrypting is safe and under-encrypting leaks. Pass `--only-secrets` to leave plain config readable.
+
+Keys stay flat and lowercased so they regenerate identically — `APP_RUN_TIME_KEY` becomes `app_run_time_key`, not a guess at where the nesting was. Group them by hand afterwards if you want the structure.
+
+## Readable Diffs
+
+A fresh IV per encryption means an unchanged value still produces a different token, so `git diff` on a secrets file is two walls of unrelated base64. `pnv show` fixes that as a textconv driver:
+
+```gitattributes
+# .gitattributes
+*.local.yaml diff=pnv
+```
+
+```ini
+# .git/config
+[diff "pnv"]
+  textconv = pnv show
+```
+
+Anyone holding the key gets a readable diff; anyone without one sees what they see today.
 
 ## Env Yaml
 
@@ -295,6 +392,7 @@ pnv uses AES-GCM for encryption and decryption, providing strong confidentiality
 - **Algorithm**: AES (Advanced Encryption Standard) in GCM (Galois/Counter Mode).
 - **Initialization Vector (IV)**: A random IV is generated for each encryption operation, ensuring that the same plaintext will produce a different ciphertext each time.
 - **Authentication Tag**: AES-GCM produces an authentication tag that verifies the integrity and authenticity of the encrypted data.
+- **Token format**: `SECRET1;` + base64(`keyId[4]` || `iv[12]` || `ciphertext` || `tag[16]`). The key id is a domain-separated hash of the key, never of the AES key itself, so it identifies the key without revealing any part of it. Older `SECRET;` values keep decrypting.
 - **Key**: `pnv create key` generates 32 random bytes from a secure source. The AES key is the SHA-256 of the decoded key, so key files created before `1.8.0` are 12 bytes and still work — rotating one gets you the full 256 bits of entropy.
 - **Key files** are created readable only by their owner (`0600`).
 

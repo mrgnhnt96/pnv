@@ -1,5 +1,23 @@
 # Change Log
 
+## 1.9.0 | 08.13.26
+
+### Features
+
+- **`pnv set` / `pnv get`** — encrypt a value straight into a `.yaml` file, and read one back. No more copying a token out of the terminal and finding the right nesting level by hand. Comments, key order and indentation are preserved; missing groups are created
+- **`pnv verify`** — checks that a secrets file is actually safe to commit. Every secret decrypts under the flavor its file name implies, no value that looks like a secret sits in plaintext, and the key storage directory is not inside the project. Read-only, non-zero on failure, meant for CI and pre-commit hooks
+- **`pnv rotate`** — re-encrypt a file or directory under a different key. `--to` moves to an existing flavor, `--new-key` mints a fresh one and keeps the old at `<flavor>.key.previous`. All-or-nothing, and it never deletes the old key
+- **`pnv import`** — build an encrypted `.yaml` from an existing `.env`, so adopting pnv is one command rather than one `encrypt` per value
+- **`pnv show`** — print a file with its secrets decrypted, for use as a git textconv driver so `git diff` on a secrets file is readable
+- **`pnv init` is scriptable** — `--storage`, repeatable `--flavor`, `--yes` and `--gitignore`. It was the only command that could not run without a terminal
+- Secrets are now written as `SECRET1;`, carrying a version and a four-byte key fingerprint. A secret encrypted under the wrong flavor is now reported as exactly that, rather than as a possible key problem
+
+### Behavior Changes
+
+- Existing `SECRET;` secrets keep decrypting; only newly written secrets use the new format
+- A secret is 12 bytes smaller: the version made it possible to drop the auth tag that was written twice
+- `pnv init` warns when the key storage directory is inside the project
+
 ## 1.8.0 | 08.13.26
 
 ### Behavior Changes

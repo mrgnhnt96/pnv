@@ -21,10 +21,13 @@ executable, or you consume the Dart file it generated.
 ## The model, in one pass
 
 ```
-  pnv create flavor  ──►  <storage>/<flavor>.key        the key. NEVER in the repo.
+  pnv init --yes     ──►  .pnvrc + <storage>/<flavor>.key   the key. NEVER in the repo.
                                     │
   envs/app.local.yaml               │                   committed. secrets are ciphertext.
-    api_key: SECRET;<base64>  ◄─────┤ pnv encrypt
+    api-key: SECRET1;<base64>  ◄────┤ pnv set app.api-key "value" --file ...
+                                    │ pnv get / pnv show      read it back
+                                    │ pnv verify              is this safe to publish?
+                                    │ pnv rotate              change the key
                                     │
                                     ▼ pnv generate env
   dist/app.local.env                                    gitignored. plaintext.
@@ -36,6 +39,10 @@ executable, or you consume the Dart file it generated.
     static const apiKey =                        (feed to dart/flutter build)
       String.fromEnvironment('API_KEY');
 ```
+
+**Reach for `pnv set` before `pnv encrypt`.** `encrypt` prints a token you then have to place
+yourself; `set` writes it where it belongs. `encrypt`/`decrypt` remain for values not going into a
+file.
 
 A **flavor** is a named key plus the file-suffix convention that selects it. Flavor `local` owns
 `<storage>/local.key` and claims every `*.local.yaml` / `*.local.env`. A flavor may declare
@@ -62,20 +69,22 @@ the logger, so `--quiet` silences them and they are captured like any other outp
 
 ### Non-interactive safety — read this before scripting pnv
 
-`pnv init` and any confirmation prompt go through `mason_logger`, which throws without a TTY:
+Any confirmation prompt goes through `mason_logger`, which throws without a TTY:
 
 ```
 Bad state: No terminal attached to stdout.
 ```
 
-**Safe to run head-less:** `encrypt`, `decrypt`, `create key`, `generate env`, `generate dart`,
-`to-dart-define`, `create flavor --name <name> --force`, `delete flavor --name <name> --force`.
+**Every command can run head-less**, given the right flag. The three that would otherwise prompt:
 
-**Never safe head-less:** `init` — it always prompts, even when everything is already configured.
-Also `create flavor` on an existing name *without* `--force`, and `delete flavor` without `--force`.
+| Command | What makes it safe |
+| --- | --- |
+| `init` | `--yes` (plus `--storage` / `--flavor` to skip the questions) |
+| `create flavor` | `--force`, when the name already exists |
+| `delete flavor` | `--force` |
 
-To set a project up in a non-interactive context, write `.pnvrc` yourself (it is plain JSON, format
-below) and call `create flavor --name <name>` per flavor. Do not reach for `init`.
+Everything else — `set`, `get`, `show`, `verify`, `rotate`, `import`, `encrypt`, `decrypt`,
+`create key`, `generate env`, `generate dart`, `to-dart-define` — never prompts.
 
 ---
 
@@ -132,9 +141,137 @@ says so explicitly rather than blaming the key.
 
 ### `pnv init`
 
-Interactive only. Prompts for the storage directory (default `~/.<pubspec name>`), adopts any
+```
+-s, --storage <dir>         where keys live; default ~/.<pubspec name>
+-f, --flavor <name>         a flavor to create; repeatable
+-y, --yes                   take defaults, never prompt (required without a TTY)
+    --gitignore             add *.key and *.key.previous to .gitignore
+```
+
+With `--yes` it never prompts, so it works in CI and project templates:
+
+```bash
+pnv init --storage ~/.my_project --flavor local --flavor production --yes --gitignore
+```
+
+Idempotent: re-running adopts existing key files rather than replacing them, and `--gitignore`
+recognises entries it wrote before. Warns if the storage directory is inside the project.
+
+Without `--yes` it is interactive. Prompts for the storage directory (default `~/.<pubspec name>`), adopts any
 `*.key` files already in that directory as flavors, offers to create key files for flavors listed in
 `.pnvrc` that have none, then loops prompting for more flavors. Writes `.pnvrc`.
+
+### `pnv set <key.path> <value> --file <file.yaml>`
+
+```
+-i, --file <file.yaml>      REQUIRED (aliases: --input)
+    --stdin                 read the value from stdin instead of an argument
+    --plain                 write it unencrypted
+-k/-f/--flavor              key selection (above)
+```
+
+Encrypts `value` into the file at a dotted path, in place. This is the normal way to add a secret.
+
+```bash
+pnv set app.api-key "sk-live-abc" --file envs/app.local.yaml
+pbpaste | pnv set app.api-key --file envs/app.local.yaml --stdin
+```
+
+- Edits go through `yaml_edit`: comments, key order and indentation elsewhere are untouched.
+- Groups on the way to the key are created if missing, in block style. An empty file works too.
+- With no key flags the flavor comes from the **file name**, as `generate env` does.
+- A path that runs through a scalar (`app.name.oops` where `app.name` is a value) is refused, and
+  nothing is written.
+
+### `pnv get <key.path> --file <file.yaml>`
+
+Prints one value, decrypted. A plain (unencrypted) value is printed as-is — plain config lives in
+these files too. Naming a group rather than a value is an error.
+
+### `pnv show <file.yaml>`
+
+Prints the whole file with every secret replaced by its plaintext, preserving comments and layout.
+Takes the path positionally (as well as via `--file`) because that is how git hands it over. A file
+with no secrets is passed through unchanged, so it is safe as a blanket textconv driver:
+
+```gitattributes
+*.local.yaml diff=pnv
+```
+```ini
+[diff "pnv"]
+  textconv = pnv show
+```
+
+### `pnv verify [--directory <dir>] [--file <f>]`
+
+The check that pnv's premise — "this file is safe to publish" — actually holds. Read-only; exits 1
+if anything is wrong. With no arguments it walks the project from the pubspec directory, skipping
+`.git`, `.dart_tool`, `build`, `node_modules` and friends, and ignoring `pubspec.yaml` itself.
+
+Four checks:
+
+1. every secret decrypts under the flavor its file name implies (the v1 key id turns a cross-flavor
+   paste into a specific message rather than a guess);
+2. a corrupt token is reported as corrupt, not as a key problem;
+3. no value that **looks** like a secret is sitting in plaintext;
+4. the key storage directory is not inside the project (needs a `pubspec.yaml` to anchor "the
+   project" — skipped without one).
+
+Check 3 fires on credential **shape** (`sk-`, `ghp_`, `github_pat_`, `AKIA`/`ASIA`, `xox[baprs]-`,
+Stripe keys, `AIza…`, JWTs, PEM private-key headers, URLs carrying a password) or on a **key name**
+that promises a secret (`key`, `secret`, `token`, `password`, `credential`, `auth`, `private`,
+`cert`, `salt`) holding a value of 8+ characters. It deliberately stays quiet for names that are
+public by convention (`public-key`, `key-name`, `key-id`, `auth-url`), for obvious placeholders
+(`change-me`, `<your-key>`, `${VAR}`, `your-…`), and for empty values.
+
+The escape hatch is a trailing comment, reusing the same convention as `# int` type declarations:
+
+```yaml
+demo-token: sk-live-not-real # plaintext, used in the public demo
+```
+
+### `pnv rotate`
+
+```
+-i, --file <file.yaml>      one file (aliases: --input)
+-d, --directory <dir>       every .yaml in a directory (aliases: --dir)
+    --from <flavor>         the flavor the secrets use now; default: per file name
+    --to <flavor>           an existing flavor to move to
+    --new-key               mint a fresh key for --from instead
+    --dry-run               report without writing
+```
+
+Exactly one of `--to` / `--new-key` is required; `--new-key` also requires `--from`.
+
+```bash
+pnv rotate --directory envs --from production --to production-2026
+pnv rotate --directory envs --from production --new-key
+```
+
+- Everything is re-encrypted in memory first. A file half under the old key and half under the new
+  is the one unrecoverable state here, so a batch containing one unreadable file writes nothing.
+- `--new-key` copies the old key to `<flavor>.key.previous` (chmod 600 — it still opens every
+  secret written before the rotation) and installs the new one **before** rewriting the files, so a
+  crash mid-run leaves both halves readable.
+- **No key is ever deleted.** Retiring one stays a separate `pnv delete flavor`.
+
+### `pnv import <file.env> --output <file.yaml>`
+
+```
+-o, --output <file.yaml>    REQUIRED
+    --only-secrets          encrypt only what looks like a secret
+    --force                 overwrite an existing output file
+-k/-f/--flavor              key selection; otherwise from the OUTPUT file name
+```
+
+Builds an encrypted YAML from an existing `.env`, for adopting pnv in a project that already has
+one. Encrypts **everything** by default — over-encrypting is safe, under-encrypting leaks;
+`--only-secrets` applies the same heuristics `verify` uses.
+
+Keys stay flat and lowercased (`APP_RUN_TIME_KEY` ⇒ `app_run_time_key`) so they regenerate
+identically. Un-flattening is not attempted on purpose: `RUN_TIME` could have been `run-time` or
+`run_time`, and guessing wrong renames the variable the build depends on. Nest them by hand
+afterwards if you want the structure.
 
 ### `pnv create key`
 
@@ -266,22 +403,31 @@ and stripped of any trailing `# type` comment.
 
 ## Formats
 
-### The `SECRET;` token
+### The `SECRET1;` token
 
 ```
-SECRET; + base64( tag[16] || iv[12] || ciphertext[n] || tag[16] )
+v1  SECRET1; + base64( keyId[4] || iv[12] || ciphertext[n] || tag[16] )   ← written now
+v0  SECRET;  + base64( tag[16]  || iv[12] || ciphertext[n] || tag[16] )   ← still read
 ```
 
 AES-256-GCM. The IV is 12 fresh random bytes per call, so encrypting the same plaintext twice gives
-different tokens — expected, not a bug, and it means a re-encrypted YAML always shows a diff. The
-128-bit GCM tag appears **twice**: `encrypt_command.dart` prepends `cipher.mac` and PointyCastle's
-`process()` has already appended the same tag to the ciphertext. Decryption slices from byte 28 and
-ignores the leading copy. Redundant, but stable — do not "fix" it without breaking every existing
-secret. There is no version byte and no key id: a token carries nothing that says which flavor
-encrypted it.
+different tokens — expected, not a bug, and the reason `git diff` needs `pnv show` to be readable.
+
+**Both versions decrypt**; only new secrets are written as v1. The two are told apart by their
+prefix rather than a byte inside the payload, because a version byte would be indistinguishable
+from the auth tag that used to occupy that position.
+
+`keyId` is the first 4 bytes of `SHA-256("pnv:key-id:v1" || keyBytes)`. The domain separator is
+load-bearing: the AES key is `SHA-256(keyBytes)`, so deriving the id the same way would publish four
+bytes of it in every committed secret. It is a label, not a security boundary — the auth tag is what
+actually rejects a wrong key — and it lets pnv say *"encrypted with a different key"* instead of
+guessing. A v0 token has no key id, so `matchesKey` returns null there rather than false.
+
+v1 also dropped the duplicated tag: v0 wrote it once via `cipher.mac` and again because
+PointyCastle's `process()` appends it. A secret is 12 bytes smaller.
 
 Key derivation: `AES key = SHA-256(base64decode(<keyfile contents>))`. Constants in
-`lib/utils/constants.dart`.
+`lib/utils/constants.dart`; parsing in `lib/src/crypto/secret_token.dart`.
 
 ### YAML ⇒ `.env` mapping
 
@@ -361,17 +507,28 @@ The `.env` files are the plaintext, and those are what must be gitignored.
 
 ## Recipes
 
-**Set up a project without prompts.** Write `.pnvrc` next to `pubspec.yaml`, then:
+**Set up a project without prompts.**
 
 ```bash
-pnv create flavor --name local --force
-pnv create flavor --name production --force
+pnv init --storage ~/.my_project --flavor local --flavor production --yes --gitignore
 ```
 
-**Add a secret to an existing YAML.**
+**Add a secret.**
 
 ```bash
-pnv encrypt "the-new-value" --flavor local     # paste the SECRET;... line into envs/app.local.yaml
+pnv set app.api-key "the-new-value" --file envs/app.local.yaml
+```
+
+**Check it is safe to commit.**
+
+```bash
+pnv verify        # exits 1 on a plaintext secret, a wrong-flavor value or a committed key
+```
+
+**Adopt pnv in a project that already has a .env.**
+
+```bash
+pnv import .env --output envs/app.local.yaml
 ```
 
 **Full build path.**
@@ -385,9 +542,14 @@ pnv to-dart-define --per-line dist/app.production.env | xargs flutter build apk
 `--per-line | xargs` rather than `$(...)` because command substitution word-splits any value
 containing a space. Use `$(...)` only when you know every value is a single word.
 
-**Rotate a key.** There is no rotate command. Decrypt every secret with the old key,
-`delete flavor --force`, `create flavor --force`, re-encrypt each value, replace the tokens. Do the
-decrypt pass *first* — deleting the flavor destroys the key, and with it every secret under it.
+**Rotate a key.**
+
+```bash
+pnv rotate --directory envs --from production --new-key --dry-run   # look first
+pnv rotate --directory envs --from production --new-key
+```
+
+The old key is kept at `<flavor>.key.previous` and nothing is deleted for you.
 
 **Onboard a teammate.** `.pnvrc` and the YAML are already in the repo; they need only the key file
 copied into their `storage` directory out of band.
@@ -404,9 +566,15 @@ copied into their `storage` directory out of band.
 | --- | --- |
 | `lib/src/pnv_runner.dart` | the command table |
 | `lib/src/commands/cryptic_command.dart` | key resolution shared by encrypt/decrypt/generate env |
-| `lib/src/commands/encrypt_command.dart`, `lib/src/handlers/decrypt_handler.dart` | the `SECRET;` wire format |
-| `lib/src/mixins/file_mixin.dart` | YAML⇒env, env⇒Dart, type inference, `flavorFrom` |
+| `lib/src/crypto/secret_token.dart` | the `SECRET1;` wire format, versions and key ids |
+| `lib/src/handlers/encrypt_handler.dart`, `.../decrypt_handler.dart` | the cipher itself |
+| `lib/src/crypto/plaintext_detector.dart` | what `verify` considers a leaked secret |
+| `lib/src/commands/secret_file_command.dart` | shared plumbing for file commands (`leaves`, key-for-file) |
+| `lib/src/commands/set_command.dart` | in-place YAML editing, including creating missing groups |
+| `lib/src/mixins/file_mixin.dart` | YAML⇒env, env⇒Dart, escaping, type inference, `flavorFromPath` |
 | `lib/src/mixins/pnv_config_mixin.dart` | `.pnvrc` discovery and storage paths |
 | `lib/src/models/pnv_config.dart` | config schema, alias resolution, conflict check |
 | `lib/src/handlers/flavor_handler.dart` | flavor create/delete |
+| `lib/src/crypto/key_permissions.dart` | why key files end up 0600 |
 | `test/e2e/` | executable examples of every command |
+| `test/e2e/bad_input_test.dart` | the failure paths, one test per historical bug |
