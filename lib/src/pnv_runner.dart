@@ -10,13 +10,15 @@ import 'package:pnv/src/commands/generate/generate_command.dart';
 import 'package:pnv/src/commands/init_command.dart';
 import 'package:pnv/src/commands/to_dart_define_command.dart';
 import 'package:pnv/src/handlers/flavor_handler.dart';
+import 'package:pnv/src/pnv_exception.dart';
 
 class PnvRunner extends CommandRunner<int> {
   PnvRunner({
     required FileSystem fs,
     required Logger logger,
     required FlavorHandler flavorHandler,
-  }) : super('pnv', 'Encrypt and decrypt secrets.') {
+  })  : _logger = logger,
+        super('pnv', 'Encrypt and decrypt secrets.') {
     addCommand(EncryptCommand(logger: logger, fs: fs));
     addCommand(DecryptCommand(logger: logger, fs: fs));
     addCommand(GenerateCommand(logger: logger, fs: fs));
@@ -28,6 +30,8 @@ class PnvRunner extends CommandRunner<int> {
       InitCommand(logger: logger, fs: fs, flavorHandler: flavorHandler),
     );
   }
+
+  final Logger _logger;
 
   @override
   Future<int> run(Iterable<String> args) async {
@@ -44,11 +48,17 @@ class PnvRunner extends CommandRunner<int> {
 
       return code;
     } on UsageException catch (e) {
-      print(e);
+      _logger.err('$e');
+
+      return 1;
+    } on PnvException catch (e) {
+      // Input failures are the user's problem to fix, so they read better
+      // without a "Failed to run command" wrapper around them.
+      _logger.err('❌ ${e.message}');
 
       return 1;
     } catch (e) {
-      print('Failed to run command. $e');
+      _logger.err('Failed to run command. $e');
       return 1;
     }
   }
