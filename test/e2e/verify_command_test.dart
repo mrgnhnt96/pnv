@@ -118,7 +118,7 @@ void main() {
   });
 
   test('fails on a corrupt token, without blaming the key', () async {
-    writeYaml('app:\n  api-key: SECRET1;GARBAGE\n');
+    writeYaml('app:\n  api-key: SECRET;v1:GARBAGE\n');
 
     final code = await run(['verify', '--dir=$envs']);
 

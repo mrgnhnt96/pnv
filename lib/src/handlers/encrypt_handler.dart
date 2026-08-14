@@ -7,7 +7,7 @@ import 'package:pnv/utils/constants.dart';
 import 'package:pointycastle/export.dart';
 
 mixin EncryptHandler {
-  /// Encrypts [value] into a v1 `SECRET1;` token.
+  /// Encrypts [value] into a v1 `SECRET;v1:` token.
   ///
   /// [keyBytes] is the decoded key; [keyHash] is its SHA-256, which is the
   /// actual AES key. Both are needed: the hash encrypts, the raw bytes produce

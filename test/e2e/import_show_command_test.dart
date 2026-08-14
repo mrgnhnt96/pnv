@@ -77,8 +77,8 @@ void main() {
       final code = await run(['import', envPath, '--output=$yamlPath']);
 
       expect(code, 0);
-      expect(readYaml(), contains('app_name: SECRET1;'));
-      expect(readYaml(), contains('app_key: SECRET1;'));
+      expect(readYaml(), contains('app_name: SECRET;v1:'));
+      expect(readYaml(), contains('app_key: SECRET;v1:'));
     });
 
     test('keys stay flat so they regenerate identically', () async {
@@ -121,8 +121,8 @@ void main() {
       final yaml = readYaml();
 
       expect(yaml, contains('app_name: demo'));
-      expect(yaml, contains('app_key: SECRET1;'));
-      expect(yaml, contains('app_password: SECRET1;'));
+      expect(yaml, contains('app_key: SECRET;v1:'));
+      expect(yaml, contains('app_password: SECRET;v1:'));
     });
 
     test('skips comments and blank lines', () async {
@@ -131,7 +131,7 @@ void main() {
       await run(['import', envPath, '--output=$yamlPath']);
 
       expect(readYaml(), isNot(contains('#')));
-      expect(readYaml(), contains('a: SECRET1;'));
+      expect(readYaml(), contains('a: SECRET;v1:'));
     });
 
     test('refuses to overwrite without --force', () async {
@@ -180,7 +180,7 @@ void main() {
 
       expect(code, 0);
       expect(output(), contains('app_key: the-secret'));
-      expect(output(), isNot(contains('SECRET1;')));
+      expect(output(), isNot(contains('SECRET;v1:')));
     });
 
     test('accepts the path positionally, as a textconv driver passes it',

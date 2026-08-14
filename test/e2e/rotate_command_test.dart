@@ -160,7 +160,7 @@ app:
       final bad = p.join(p.separator, 'batch', 'zbad.local.yaml');
 
       await seed(good);
-      writeYaml(bad, 'v: SECRET1;GARBAGE\n');
+      writeYaml(bad, 'v: SECRET;v1:GARBAGE\n');
 
       final before = fs.file(good).readAsStringSync();
 

@@ -46,12 +46,12 @@ void main() {
   group('isSecret', () {
     test('accepts both versions', () {
       expect(isSecret('SECRET;abc'), isTrue);
-      expect(isSecret('SECRET1;abc'), isTrue);
+      expect(isSecret('SECRET;v1:abc'), isTrue);
     });
 
     test('rejects anything else', () {
       expect(isSecret('hello'), isFalse);
-      expect(isSecret('SECRET2;abc'), isFalse);
+      expect(isSecret('SECRETS;abc'), isFalse);
       expect(isSecret(''), isFalse);
     });
   });
@@ -96,7 +96,7 @@ void main() {
 
     test('rejects a payload that is not base64', () {
       expect(
-        () => SecretToken.parse('SECRET1;not base64!!'),
+        () => SecretToken.parse('SECRET;v1:not base64!!'),
         throwsA(
           isA<PnvException>().having(
             (e) => e.message,
@@ -109,7 +109,8 @@ void main() {
 
     test('rejects a payload too short to hold a header and a tag', () {
       expect(
-        () => SecretToken.parse('SECRET1;${base64.encode(List.filled(8, 0))}'),
+        () =>
+            SecretToken.parse('SECRET;v1:${base64.encode(List.filled(8, 0))}'),
         throwsA(
           isA<PnvException>().having(
             (e) => e.message,
@@ -122,7 +123,7 @@ void main() {
 
     test('names the context in its errors', () {
       expect(
-        () => SecretToken.parse('SECRET1;!!', context: 'app.yaml → db.pass'),
+        () => SecretToken.parse('SECRET;v1:!!', context: 'app.yaml → db.pass'),
         throwsA(
           isA<PnvException>().having(
             (e) => e.message,

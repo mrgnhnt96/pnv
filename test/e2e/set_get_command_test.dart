@@ -93,7 +93,7 @@ app:
         contains('base-url: http://localhost:3000   # trailing comment'),
       );
       expect(result, contains('name: demo'));
-      expect(result, contains('api-key: SECRET1;'));
+      expect(result, contains('api-key: SECRET;v1:'));
       expect(result, isNot(contains('replace-me')));
     });
 
@@ -104,7 +104,7 @@ app:
 
       // Block style, not the `db: {password: ...}` flow map that adding one
       // empty map at a time produces.
-      expect(readYaml(), contains('  db:\n    password: SECRET1;'));
+      expect(readYaml(), contains('  db:\n    password: SECRET;v1:'));
     });
 
     test('seeds an empty document', () async {
@@ -113,7 +113,7 @@ app:
       final code = await run(['set', 'a.b.c', 'v', '--file=$yamlPath']);
 
       expect(code, 0);
-      expect(readYaml(), contains('a:\n  b:\n    c: SECRET1;'));
+      expect(readYaml(), contains('a:\n  b:\n    c: SECRET;v1:'));
       expect(readYaml(), endsWith('\n'));
     });
 

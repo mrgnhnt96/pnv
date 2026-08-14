@@ -5,17 +5,24 @@ import 'package:crypto/crypto.dart';
 import 'package:pnv/src/pnv_exception.dart';
 import 'package:pnv/utils/constants.dart';
 
-/// The prefix on secrets written before the format carried a version.
-const legacySecretPrefix = 'SECRET;';
+/// Every pnv secret starts with this, in every version.
+///
+/// It is load-bearing well outside this package: consumers glob `SECRET;*` to
+/// decide whether a value needs decrypting, and grep `^\s*key:\s*SECRET;` to
+/// find blobs in a YAML file. A version marker in front of it would break all
+/// of that, so the version goes *after*.
+const secretPrefix = 'SECRET;';
 
-/// The current prefix. Distinct from [legacySecretPrefix] rather than a byte
-/// inside the payload, because a version byte would be indistinguishable from
-/// the auth tag that used to occupy that position.
-const secretPrefix = 'SECRET1;';
+/// Marks a v1 payload, sitting between [secretPrefix] and the base64 body.
+///
+/// Unambiguous because the base64 alphabet has no `:`, so a v0 payload can
+/// never begin with this. That is what makes a version possible at all — a
+/// version *byte* inside the payload would be indistinguishable from the auth
+/// tag that used to occupy that position.
+const versionMarker = 'v1:';
 
 /// Whether [value] is a pnv secret of any version.
-bool isSecret(String value) =>
-    value.startsWith(secretPrefix) || value.startsWith(legacySecretPrefix);
+bool isSecret(String value) => value.startsWith(secretPrefix);
 
 /// Identifies the key a secret was encrypted with, without revealing it.
 ///
@@ -31,7 +38,7 @@ Uint8List keyFingerprint(List<int> keyBytes) {
   return Uint8List.fromList(digest.bytes.sublist(0, keyIdLength));
 }
 
-/// A parsed `SECRET;` / `SECRET1;` token.
+/// A parsed `SECRET;` token, of either version.
 class SecretToken {
   const SecretToken({
     required this.version,
@@ -50,17 +57,20 @@ class SecretToken {
     final int version;
     final String encoded;
 
-    if (value.startsWith(secretPrefix)) {
-      version = 1;
-      encoded = value.substring(secretPrefix.length);
-    } else if (value.startsWith(legacySecretPrefix)) {
-      version = 0;
-      encoded = value.substring(legacySecretPrefix.length);
-    } else {
+    if (!value.startsWith(secretPrefix)) {
       throw PnvException(
-        'Not a pnv secret$where: expected it to start with "$secretPrefix" '
-        'or "$legacySecretPrefix".',
+        'Not a pnv secret$where: expected it to start with "$secretPrefix".',
       );
+    }
+
+    final body = value.substring(secretPrefix.length);
+
+    if (body.startsWith(versionMarker)) {
+      version = 1;
+      encoded = body.substring(versionMarker.length);
+    } else {
+      version = 0;
+      encoded = body;
     }
 
     final Uint8List payload;
@@ -98,7 +108,7 @@ class SecretToken {
     );
   }
 
-  /// 0 for `SECRET;`, 1 for `SECRET1;`.
+  /// 0 for a bare `SECRET;` payload, 1 for `SECRET;v1:`.
   final int version;
 
   /// The first [keyIdLength] bytes of the key's fingerprint, or null on v0,
@@ -134,7 +144,7 @@ class SecretToken {
     required Uint8List iv,
     required Uint8List body,
   }) {
-    return '$secretPrefix${base64.encode([
+    return '$secretPrefix$versionMarker${base64.encode([
           ...keyFingerprint(keyBytes),
           ...iv,
           ...body,

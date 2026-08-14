@@ -80,7 +80,7 @@ void main() {
           await run(type);
 
           expect(value, isNotNull);
-          expect(value, startsWith('SECRET1;'));
+          expect(value, startsWith('SECRET;v1:'));
           expect(exitCode, 0);
         });
       }
