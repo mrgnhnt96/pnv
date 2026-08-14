@@ -13,6 +13,7 @@
 - `pnv create key` generates 32 random bytes instead of 12. Existing 12-byte keys keep working and existing secrets are unaffected
 - Key files are created with `0600` permissions
 - Errors are reported through the logger rather than `print`, so they respect `--quiet` and go to stderr
+- Generated `.env` files no longer carry `# .` / `# .path` breadcrumb comments before each nested block. The key prefix already carried the full path, and they collided with the `# type` convention. Comment lines are still skipped when reading a `.env`
 
 ### Features
 

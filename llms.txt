@@ -301,11 +301,7 @@ BASE_URL="http://localhost:3000"
 APP_SECRET="s3cr3t-value"
 PORT=8080
 DEBUG=true
-# .
-# .db
 DB_HOST="localhost"
-# .
-# .db.nested
 DB_NESTED_DEEP_KEY="deep-value"
 ```
 
@@ -318,8 +314,9 @@ DB_NESTED_DEEP_KEY="deep-value"
 - **Values are escaped**: `\` ⇒ `\\`, `"` ⇒ `\"`, newline ⇒ `\n`, carriage return ⇒ `\r`. So a
   multi-line secret (a PEM key, a JSON blob) survives as one `.env` entry. Before 1.8.0 nothing was
   escaped, so a quote produced unparseable output and a newline truncated the value at the break.
-- The `# .` / `# .db` breadcrumb lines are emitted before each nested block. They are comments; the
-  `.env` consumers here ignore them.
+- Nesting leaves no trace of its own in the output — the key prefix already carries the full path.
+  Comment lines in a hand-edited `.env` are still skipped on read, so adding your own is safe. The
+  only comment pnv *reads* is a trailing `# type` declaration.
 
 ### Forcing a type (`# int`, `# bool`, `# num`, `# string`)
 

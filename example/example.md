@@ -29,11 +29,7 @@ The output file is named after the input file, so `local.yaml` produces `local.e
 ```dotenv
 # outputs/local.env
 BASE_URL="http://localhost:3000"
-# .
-# .app
 APP_SECRET="app-secret"
-# .
-# .app.run-time
 APP_RUN_TIME_NOT_SECRET="not"
 APP_RUN_TIME_KEY="run-time-key"
 ```

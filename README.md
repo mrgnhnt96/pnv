@@ -224,8 +224,6 @@ This would generate the following environment variable:
 ```dotenv
 # env_files/outputs/app.local.env
 SECRET="<decoded_data>"
-# .
-# .api
 API_SCHEMA="http"
 API_HOST="localhost"
 API_PORT=8080
