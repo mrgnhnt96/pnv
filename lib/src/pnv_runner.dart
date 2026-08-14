@@ -8,9 +8,11 @@ import 'package:pnv/src/commands/encrypt_command.dart';
 import 'package:pnv/src/commands/generate/deprecated_generate_env_command.dart';
 import 'package:pnv/src/commands/generate/generate_command.dart';
 import 'package:pnv/src/commands/get_command.dart';
+import 'package:pnv/src/commands/import_command.dart';
 import 'package:pnv/src/commands/init_command.dart';
 import 'package:pnv/src/commands/rotate_command.dart';
 import 'package:pnv/src/commands/set_command.dart';
+import 'package:pnv/src/commands/show_command.dart';
 import 'package:pnv/src/commands/to_dart_define_command.dart';
 import 'package:pnv/src/commands/verify_command.dart';
 import 'package:pnv/src/handlers/flavor_handler.dart';
@@ -34,6 +36,8 @@ class PnvRunner extends CommandRunner<int> {
     addCommand(GetCommand(fs: fs, logger: logger));
     addCommand(RotateCommand(fs: fs, logger: logger));
     addCommand(VerifyCommand(fs: fs, logger: logger));
+    addCommand(ImportCommand(fs: fs, logger: logger));
+    addCommand(ShowCommand(fs: fs, logger: logger));
     addCommand(
       InitCommand(logger: logger, fs: fs, flavorHandler: flavorHandler),
     );
