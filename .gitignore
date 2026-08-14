@@ -81,3 +81,8 @@ packages/backend/pocketbase/pb_data/types.d.ts
 **/pubspec_overrides.yaml
 test_user_configs/
 packages/backend/Dockerfile
+
+# AI tooling
+.claude/
+.game_loop/
+graphify-out/
