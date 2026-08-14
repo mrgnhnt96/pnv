@@ -1,8 +1,6 @@
-import 'dart:io';
-
 import 'package:file/file.dart';
-import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
+import 'package:pnv/src/crypto/key_permissions.dart';
 import 'package:pnv/src/mixins/crypto_mixin.dart';
 import 'package:pnv/src/mixins/platform_mixin.dart';
 import 'package:pnv/src/mixins/pnv_config_mixin.dart';
@@ -103,31 +101,11 @@ class FlavorHandler
       ..createSync(recursive: true)
       ..writeAsStringSync(newKey);
 
-    _restrictPermissions(file);
+    restrictKeyPermissions(fs, file, logger: logger);
 
     config.addFlavor(flavor);
 
     saveConfig(config);
-  }
-
-  /// A key file *is* the secret, so it must not be readable by anyone else.
-  ///
-  /// Dart's file API cannot set a mode, so this shells out — and only for a
-  /// real file system, because tests run against an in-memory one where these
-  /// paths may coincide with the developer's own keys on disk.
-  void _restrictPermissions(File file) {
-    if (fs is! LocalFileSystem) return;
-    if (Platform.isWindows) return;
-
-    try {
-      final result = Process.runSync('chmod', ['600', file.path]);
-
-      if (result.exitCode != 0) {
-        logger.detail('Could not restrict permissions on ${file.path}');
-      }
-    } catch (e) {
-      logger.detail('Could not restrict permissions on ${file.path}: $e');
-    }
   }
 
   bool createIfNotExists(
