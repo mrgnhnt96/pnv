@@ -3,6 +3,8 @@ import 'package:path/path.dart' as p;
 import 'package:pnv/src/commands/cryptic_command.dart';
 import 'package:pnv/src/handlers/decrypt_handler.dart';
 import 'package:pnv/src/mixins/file_mixin.dart';
+import 'package:pnv/src/models/pnv_config.dart';
+import 'package:pnv/src/pnv_exception.dart';
 
 class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
   GenerateEnvCommand({
@@ -49,14 +51,14 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
     }
 
     if (!fs.file(input).existsSync()) {
-      throw ArgumentError(
+      throw PnvException(
         'Input file "$input" does not exist.',
       );
     }
 
     final ext = p.extension(input);
     if (!(ext == '.yaml' || ext == '.yml')) {
-      throw ArgumentError('Input file "$input" must be a .yaml file.');
+      throw PnvException('Input file "$input" must be a .yaml file.');
     }
 
     return input;
@@ -70,7 +72,7 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
     }
 
     if (!fs.directory(directory).existsSync()) {
-      throw ArgumentError(
+      throw PnvException(
         'Input directory "$directory" does not exist.',
       );
     }
@@ -110,66 +112,126 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
       return 1;
     }
 
+    final config = pnvConfig();
+    final selected = resolveFlavor(config);
+
+    if (selected == null) {
+      return 1;
+    }
+
+    final inputs = <String>[];
+
     if (input case final String input) {
-      List<int>? keyHash;
-
-      try {
-        keyHash = this.keyHash;
-      } catch (_) {}
-
-      if (keyHash == null) {
-        final flavor = flavorFrom(input);
-        final secret = secretFor(flavor: flavor);
-        keyHash = keyHashFor(secret);
-      }
-
-      await generateEnvFromYaml(
-        input,
-        output: output,
-        keyHash: keyHash,
-      );
+      inputs.add(input);
     }
 
     if (dir case final String dir) {
-      final config = pnvConfig();
-      final files = fs.directory(dir).listSync().whereType<File>();
+      for (final file in fs.directory(dir).listSync().whereType<File>()) {
+        if (selected.flavors case final Set<String> flavors) {
+          final fileFlavor = flavorFrom(file.path);
 
-      for (final file in files) {
-        List<int>? keyHash;
-        if (config == null) {
-          keyHash = this.keyHash;
-        } else {
-          if (config.flavorsFor(flavor) case final Set<String> flavors) {
-            final fileFlavor = flavorFrom(file.path);
-
-            if (!flavors.contains(fileFlavor)) {
-              final relative = p.relative(
-                file.path,
-                from: fs.currentDirectory.path,
-              );
-              logger.detail(
-                'Skipping file "$relative", '
-                'flavor "$fileFlavor" does not match "$flavor".',
-              );
-              continue;
-            }
-
-            keyHash = this.keyHash;
-          } else {
-            final flavor = flavorFrom(file.path);
-            final secret = secretFor(flavor: flavor);
-            keyHash = keyHashFor(secret);
+          if (!flavors.contains(fileFlavor)) {
+            final relative = p.relative(
+              file.path,
+              from: fs.currentDirectory.path,
+            );
+            logger.detail(
+              'Skipping file "$relative", '
+              'flavor "$fileFlavor" does not match "${selected.name}".',
+            );
+            continue;
           }
         }
 
-        await generateEnvFromYaml(
-          file.path,
-          output: output,
-          keyHash: keyHash,
-        );
+        inputs.add(file.path);
       }
     }
 
+    // Render everything before writing anything. Writing as we went left a
+    // half-populated output directory behind whenever one file failed, and
+    // which files survived depended on directory iteration order.
+    final rendered = <File, String>{};
+
+    for (final path in inputs) {
+      final keyHash = keyHashForInput(path, selected);
+
+      if (keyHash == null) {
+        return 1;
+      }
+
+      try {
+        rendered[outputEnvFileFor(path, output)] =
+            renderEnvFromYaml(path, keyHash: keyHash);
+      } on PnvException catch (e) {
+        logger.err('❌ ${e.message}');
+        return 1;
+      }
+    }
+
+    for (final MapEntry(key: file, value: content) in rendered.entries) {
+      await writeEnvFile(file, content);
+    }
+
     return 0;
+  }
+
+  /// Resolves `--flavor` against the config, or reports why it cannot.
+  ///
+  /// An unrecognised name used to resolve to "no flavor selected", which is
+  /// the generate-everything path — so a typo widened the run to every
+  /// environment on disk, production included, and exited 0.
+  ({String? name, Set<String>? flavors})? resolveFlavor(PnvConfig? config) {
+    final flavor = this.flavor?.trim();
+
+    if (flavor == null || flavor.isEmpty) {
+      return (name: null, flavors: null);
+    }
+
+    if (config == null) {
+      logger.err(
+        '❌ --flavor "$flavor" was given but no .pnvrc was found. '
+        'Run `pnv init` first, or pass --key / --key-file instead.',
+      );
+      return null;
+    }
+
+    if (config.flavorsFor(flavor) case final Set<String> flavors) {
+      return (name: flavor, flavors: flavors);
+    }
+
+    logger.err(
+      '❌ Flavor "$flavor" is not in .pnvrc. '
+      'Known flavors: ${config.flavors.keys.join(', ')}',
+    );
+
+    return null;
+  }
+
+  /// The key to decrypt [path] with, or null once the reason has been logged.
+  List<int>? keyHashForInput(
+    String path,
+    ({String? name, Set<String>? flavors}) selected,
+  ) {
+    if (key != null || keyFile != null || selected.name != null) {
+      try {
+        return keyHash;
+      } on PnvException catch (e) {
+        logger.err('❌ ${e.message}');
+        return null;
+      }
+    }
+
+    // No key was named, so the flavor comes from the file name.
+    final inferred = flavorFrom(path);
+
+    try {
+      return keyHashFor(secretFor(flavor: inferred));
+    } on PnvException catch (e) {
+      logger.err(
+        '❌ No key for "${p.relative(path)}": its name implies flavor '
+        '"$inferred", which has no key. ${e.message}',
+      );
+      return null;
+    }
   }
 }
