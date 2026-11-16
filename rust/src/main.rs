@@ -1,95 +1,42 @@
-use std::path::PathBuf;
+mod cli;
+
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
+use clap::error::ErrorKind;
 
-/// Encrypted secrets in YAML files that are safe to commit.
-#[derive(Debug, Parser)]
-#[command(name = "pnv", version)]
-struct Cli {
-    #[command(subcommand)]
-    command: Command,
-}
-
-#[derive(Debug, Subcommand)]
-enum Command {
-    /// Create new entities for your environment.
-    #[command(subcommand)]
-    Create(Create),
-    /// Check that the YAML files in the project are safe to commit publicly.
-    Verify {
-        /// Where to look for .yaml files. Defaults to the .pnvrc directory.
-        #[arg(short, long, alias = "dir", value_name = "envs")]
-        directory: Option<PathBuf>,
-    },
-}
-
-#[derive(Debug, Subcommand)]
-enum Create {
-    /// Create a new encryption key.
-    Key,
-}
+use cli::{Cli, Failure, Log};
 
 fn main() -> ExitCode {
-    let cli = Cli::parse();
-
-    let result = match cli.command {
-        Command::Create(Create::Key) => pnv::create_key().map(|key| println!("{key}")),
-        Command::Verify { directory } => return verify(directory),
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(err) => {
+            // Asking for help is not a mistake; a bad flag is. Either way the
+            // exit code is 0 or 1, as with the Dart tool, never clap's 2.
+            let asked = matches!(
+                err.kind(),
+                ErrorKind::DisplayHelp
+                    | ErrorKind::DisplayVersion
+                    | ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
+            );
+            if asked {
+                // clap sends help shown for a missing subcommand to stderr.
+                print!("{err}");
+                return ExitCode::SUCCESS;
+            }
+            let _ = err.print();
+            return ExitCode::FAILURE;
+        }
     };
 
-    match result {
+    let log = Log::new(cli.level());
+
+    match cli::run(cli.command, &log) {
         Ok(()) => ExitCode::SUCCESS,
-        Err(err) => {
-            eprintln!("{err}");
+        Err(Failure::Reported) => ExitCode::FAILURE,
+        Err(failure) => {
+            log.err(format!("\u{274c} {failure}"));
             ExitCode::FAILURE
         }
     }
-}
-
-fn verify(directory: Option<PathBuf>) -> ExitCode {
-    let found = std::env::current_dir()
-        .map_err(|err| err.to_string())
-        .and_then(|cwd| pnv::Pnvrc::discover(cwd).map_err(|err| err.to_string()));
-
-    let (path, pnvrc) = match found {
-        Ok(Some(found)) => found,
-        Ok(None) => {
-            eprintln!("\u{274c} No .pnvrc found. Run `pnv init` first.");
-            return ExitCode::FAILURE;
-        }
-        Err(err) => {
-            eprintln!("\u{274c} {err}");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let project = path.parent().map(PathBuf::from).unwrap_or_default();
-    let root = directory.unwrap_or_else(|| project.clone());
-
-    let report = match pnv::verify(&root, &project, &pnvrc) {
-        Ok(report) => report,
-        Err(err) => {
-            eprintln!("\u{274c} {err}");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    if report.files == 0 {
-        eprintln!("No .yaml files found to check.");
-    }
-
-    if report.is_clean() {
-        println!(
-            "\u{2713} {} file(s), {} secret(s). Nothing here looks unsafe to publish.",
-            report.files, report.secrets
-        );
-        return ExitCode::SUCCESS;
-    }
-
-    eprintln!("\u{274c} {} problem(s):", report.problems.len());
-    for problem in &report.problems {
-        eprintln!("   \u{2022} {problem}");
-    }
-    ExitCode::FAILURE
 }
