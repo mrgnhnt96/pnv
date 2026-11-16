@@ -1,0 +1,13 @@
+name: cross-tool
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cross-tool:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - uses: dtolnay/rust-toolchain@stable
+      - run: scripts/cross_tool.sh
