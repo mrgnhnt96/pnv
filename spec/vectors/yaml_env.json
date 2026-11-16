@@ -1,0 +1,115 @@
+{
+  "description": "YAML file to .env text (generate env). Every case is decrypted with \"key\". \"env\" is the exact output, or \"error\" is the kind of failure; a failing file produces no output.",
+  "key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "cases": [
+    {
+      "name": "the README example",
+      "yaml": "base-url: http://localhost:3000\napp-secret: SECRET;v1:ikceywABAgMEBQYHCAkKCyLDfmHplmR3TDvBmf48BQQ9Ry9u/Zx9DFyk6Ao=\nport: 8080\ndebug: true\ndb:\n  host: localhost\n  nested:\n    deep-key: deep-value\n",
+      "env": "BASE_URL=\"http://localhost:3000\"\nAPP_SECRET=\"s3cr3t-value\"\nPORT=8080\nDEBUG=true\nDB_HOST=\"localhost\"\nDB_NESTED_DEEP_KEY=\"deep-value\"\n"
+    },
+    {
+      "name": "scalars that stay unquoted",
+      "note": "int, float and bool are written bare, rendered the way Dart prints them (see format.md, \"Rendering a scalar\")",
+      "yaml": "int: 8080\nnegative: -3\nhex: 0x1F\noctal: 0o17\nleading-zero: 007\nplus: +12\nfloat: 1.5\nwhole-float: 1.0\nexponent: 1e3\nsmall: 1.5e-7\ninf: .inf\nneg-inf: -.inf\nnan: .nan\nbool-true: true\nbool-title: True\nbool-upper: FALSE\n",
+      "env": "INT=8080\nNEGATIVE=-3\nHEX=31\nOCTAL=15\nLEADING_ZERO=7\nPLUS=12\nFLOAT=1.5\nWHOLE_FLOAT=1.0\nEXPONENT=1000.0\nSMALL=1.5e-7\nINF=Infinity\nNEG_INF=-Infinity\nNAN=NaN\nBOOL_TRUE=true\nBOOL_TITLE=true\nBOOL_UPPER=false\n"
+    },
+    {
+      "name": "scalars that stay strings",
+      "yaml": "yes: yes\non: on\ndate: 2024-01-01\nunderscored: 1_000\nquoted-int: '123'\nquoted-bool: \"true\"\nversion: 1.2.3\nempty-quoted: \"\"\n",
+      "env": "YES=\"yes\"\nON=\"on\"\nDATE=\"2024-01-01\"\nUNDERSCORED=\"1_000\"\nQUOTED_INT=\"123\"\nQUOTED_BOOL=\"true\"\nVERSION=\"1.2.3\"\nEMPTY_QUOTED=\"\"\n"
+    },
+    {
+      "name": "null values",
+      "yaml": "tilde: ~\nword: null\ntitle: Null\nempty:\n",
+      "env": "TILDE=\nWORD=\nTITLE=\nEMPTY=\n"
+    },
+    {
+      "name": "escaping in plain values",
+      "note": "every string is escaped, plaintext or decrypted; a tab is left alone",
+      "yaml": "quote: say \"hi\"\nbackslash: C:\\path\\to\ntab: \"a\tb\"\nescaped-newline: \"line1\\nline2\"\ncrlf: \"a\\r\\nb\"\nhash-in-quotes: \"x # y\"\n",
+      "env": "QUOTE=\"say \\\"hi\\\"\"\nBACKSLASH=\"C:\\\\path\\\\to\"\nTAB=\"a\tb\"\nESCAPED_NEWLINE=\"line1\\nline2\"\nCRLF=\"a\\r\\nb\"\nHASH_IN_QUOTES=\"x # y\"\n"
+    },
+    {
+      "name": "block scalars",
+      "yaml": "literal: |\n  line one\n  line two\nfolded: >\n  folded\n  text\nstripped: |-\n  no trailing newline\n",
+      "env": "LITERAL=\"line one\\nline two\\n\"\nFOLDED=\"folded text\\n\"\nSTRIPPED=\"no trailing newline\"\n"
+    },
+    {
+      "name": "secrets are decrypted and escaped",
+      "yaml": "plain: not secret\ntoken: SECRET;v1:ikceywABAgMEBQYHCAkKCyLDfmHplmR3TDvBmf48BQQ9Ry9u/Zx9DFyk6Ao=\npem: SECRET;v1:ikcey6ChoqOkpaanqKmqq8q5yc4vQguzofLaDLgKl7H05kR+Eq17zh2NQj91kUZDVx/V38R1lzLD4tnUQNbZu02Si+C//1jpquckewhfmoJxMXI6MYcKUAAavEhGUvmI+XJ8upw=\nlegacy: SECRET;ZhT41aiwJqTSMEmEil249aChoqOkpaanqKmqq5DmjZd2ZSDUisXaLIQ14cGO22YU+NWosCak0jBJhIpduPU=\nquoted: \"SECRET;v1:ikceywABAgMEBQYHCAkKCyLDfmHplmR3TDvBmf48BQQ9Ry9u/Zx9DFyk6Ao=\"\n",
+      "env": "PLAIN=\"not secret\"\nTOKEN=\"s3cr3t-value\"\nPEM=\"-----BEGIN PRIVATE KEY-----\\nline2\\r\\n\\\"quoted\\\" \\\\back # not a comment\ttab\"\nLEGACY=\"written by pnv 1.x\"\nQUOTED=\"s3cr3t-value\"\n"
+    },
+    {
+      "name": "key names",
+      "yaml": "Api-Key: a\nsnake_case: b\ndotted.key: c\nwith space: d\n1: e\ntrue: f\nUPPER: g\n",
+      "env": "API_KEY=\"a\"\nSNAKE_CASE=\"b\"\nDOTTED.KEY=\"c\"\nWITH SPACE=\"d\"\n1=\"e\"\nTRUE=\"f\"\nUPPER=\"g\"\n"
+    },
+    {
+      "name": "nesting",
+      "yaml": "a:\n  b:\n    c:\n      d: deep\n  e: shallow\nempty: {}\nflow: {host: x, port: 1}\n",
+      "env": "A_B_C_D=\"deep\"\nA_E=\"shallow\"\nFLOW_HOST=\"x\"\nFLOW_PORT=1\n"
+    },
+    {
+      "name": "type comments are carried over",
+      "note": "the comment is read from the value's own line only, so db.port does not type top-port",
+      "yaml": "port: # int\nname: x # string\nquoted: \"y\" # bool\nnumber: 3 # num\nspaced: z   #   int\nbare-hash: w #\ndb:\n  port: # int\ntop-port: 80\n",
+      "env": "PORT= # int\nNAME=\"x\" # string\nQUOTED=\"y\" # bool\nNUMBER=3 # num\nSPACED=\"z\" # int\nBARE_HASH=\"w\"\nDB_PORT= # int\nTOP_PORT=80\n"
+    },
+    {
+      "name": "a comment on its own line is not a type",
+      "yaml": "# int\na: 1\n# header\nb:\n  # nested\n  c: 2\n",
+      "env": "A=1\nB_C=2\n"
+    },
+    {
+      "name": "anchors and aliases",
+      "yaml": "base: &base\n  host: h\n  port: 1\ncopy: *base\nname: &n value\nagain: *n\n",
+      "env": "BASE_HOST=\"h\"\nBASE_PORT=1\nCOPY_HOST=\"h\"\nCOPY_PORT=1\nNAME=\"value\"\nAGAIN=\"value\"\n"
+    },
+    {
+      "name": "CRLF line endings",
+      "note": "the output always uses LF",
+      "yaml": "a: 1 # int\r\nb: two\r\nc:\r\n  d: three\r\n",
+      "env": "A=1 # int\nB=\"two\"\nC_D=\"three\"\n"
+    },
+    {
+      "name": "empty file",
+      "yaml": "",
+      "env": ""
+    },
+    {
+      "name": "comments only",
+      "yaml": "# nothing here\n",
+      "env": ""
+    },
+    {
+      "name": "a document marker and nothing else",
+      "yaml": "---\n",
+      "env": ""
+    },
+    {
+      "name": "a list value",
+      "yaml": "hosts:\n  - a\n  - b\n",
+      "error": "unsupported-type"
+    },
+    {
+      "name": "a list at the top",
+      "yaml": "- a\n- b\n",
+      "error": "not-a-map"
+    },
+    {
+      "name": "a scalar at the top",
+      "yaml": "just a string\n",
+      "error": "not-a-map"
+    },
+    {
+      "name": "a secret under the wrong key",
+      "yaml": "token: SECRET;v1:EZuHoAABAgMEBQYHCAkKC+wEoXQSduYwAAZAronEEYWK2tY0mjU/I+ulD9E=\n",
+      "error": "wrong-key"
+    },
+    {
+      "name": "a malformed secret",
+      "yaml": "token: SECRET;not base64!\n",
+      "error": "malformed"
+    }
+  ]
+}
