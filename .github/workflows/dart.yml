@@ -7,11 +7,6 @@ on:
       - "dart/**"
       - "spec/**"
       - ".github/workflows/dart.yml"
-  pull_request:
-    paths:
-      - "dart/**"
-      - "spec/**"
-      - ".github/workflows/dart.yml"
 
 jobs:
   check:
