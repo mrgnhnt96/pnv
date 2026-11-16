@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
@@ -131,6 +132,34 @@ impl KeyLookup {
         self.resolve_inner(&mut || Ok(pnvrc.cloned()), &env)
     }
 
+    /// As [`KeyLookup::resolve`], also saying what the lookup looked at: the
+    /// environment variables it read and the `.pnvrc` it loaded, so a build
+    /// script can ask cargo to rerun when one of them changes.
+    pub(crate) fn resolve_traced(&self) -> (Result<ResolvedKey>, Trace) {
+        let env_vars = RefCell::new(Vec::new());
+        let mut pnvrc = None;
+        let result = self.resolve_inner(
+            &mut || {
+                let cwd = std::env::current_dir()
+                    .map_err(|err| Error::io("find", Path::new("."), &err))?;
+                let Some(path) = Pnvrc::find(cwd) else {
+                    return Ok(None);
+                };
+                pnvrc = Some(path.clone());
+                Pnvrc::load(&path)
+            },
+            &|name| {
+                env_vars.borrow_mut().push(name.to_owned());
+                std::env::var(name).ok()
+            },
+        );
+        let trace = Trace {
+            env_vars: env_vars.into_inner(),
+            pnvrc,
+        };
+        (result, trace)
+    }
+
     fn resolve_inner(
         &self,
         load: &mut dyn FnMut() -> Result<Option<Pnvrc>>,
@@ -173,6 +202,15 @@ impl KeyLookup {
 
         Err(Error::NoKey { file: None })
     }
+}
+
+/// What a [`KeyLookup`] looked at.
+#[derive(Debug, Default)]
+pub(crate) struct Trace {
+    /// Every environment variable read, in order.
+    pub(crate) env_vars: Vec<String>,
+    /// The `.pnvrc` that was found, when one was needed.
+    pub(crate) pnvrc: Option<PathBuf>,
 }
 
 fn find_flavor_key(

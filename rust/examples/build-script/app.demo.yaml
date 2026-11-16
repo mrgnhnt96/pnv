@@ -1,0 +1,5 @@
+app-name: pnv demo
+server:
+  port: 8080 # int
+database-url: SECRET;v1:MepxilF+ODIpa3lP+QyijI0JV4xbsFB31UAKoHryOgA2vw13M7SQAZrRGTu2w/QCbOBLd2nWByXLe98kgG4bQr42rUiDjeMmIVKe6qsxh9I=
+api-key: SECRET;v1:Mepxipt3pPlysf/I+Rf7ByFT7P96N7eKNZ6A3CTUfcUp1KU7GESc5XWz031MlLKpM58=

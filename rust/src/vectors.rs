@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 use crate::token::encrypt_with_iv;
-use crate::{Key, Pnvrc, Token, Version, decrypt, flavor_from_path};
+use crate::{Env, Key, Pnvrc, Token, Version, decrypt, flavor_from_path};
 
 fn load(name: &str) -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -198,5 +198,24 @@ fn plaintext_detector_files() {
             .map(|v| v.as_str().unwrap())
             .collect();
         assert_eq!(flagged, expected, "{name}");
+    }
+}
+
+#[test]
+fn yaml_env() {
+    let file = load("yaml_env.json");
+    let key = Key::decode(str_of(&file, "key")).unwrap();
+    for case in cases(&file, "cases") {
+        let name = name_of(case);
+        let result = Env::parse(str_of(case, "yaml"), &key);
+
+        if let Some(kind) = case["error"].as_str() {
+            let err = result.expect_err(&name);
+            assert_eq!(err.kind().as_str(), kind, "{name}: {err}");
+            continue;
+        }
+
+        let env = result.unwrap_or_else(|err| panic!("{name}: {err}"));
+        assert_eq!(env.to_dotenv(), str_of(case, "env"), "{name}");
     }
 }

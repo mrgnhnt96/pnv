@@ -7,7 +7,7 @@ use crate::key::MIN_KEY_LENGTH;
 /// Shorthand for a result whose error is [`Error`].
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-/// Everything that can go wrong with a key or a secret.
+/// Everything that can go wrong with a key, a secret or a YAML file.
 ///
 /// The messages match the Dart tool's word for word, so a user sees the same
 /// text whichever tool they run. A corrupt value ([`Error::Malformed`]) is
@@ -97,6 +97,47 @@ pub enum Error {
         /// The file being worked on, when its name gave the flavor.
         file: Option<PathBuf>,
     },
+    /// A YAML file could not be loaded: bad syntax, a duplicate key, an
+    /// unknown tag or alias, a key that is not a scalar, or more than one
+    /// document.
+    InvalidYaml {
+        /// The file, when it was read from one.
+        path: Option<PathBuf>,
+        /// The line of the problem, counting from 1.
+        line: usize,
+        /// The column of the problem, counting from 1.
+        column: usize,
+        /// What is wrong.
+        message: String,
+    },
+    /// The top level of a YAML file is not a mapping.
+    NotAMap {
+        /// The file, when it was read from one.
+        path: Option<PathBuf>,
+    },
+    /// A YAML value is a list. Lists have no `.env` form.
+    UnsupportedType {
+        /// The file, when it was read from one.
+        path: Option<PathBuf>,
+        /// The key of the list, with its parents joined by `.`.
+        key: String,
+    },
+    /// A value meant for a build script holds a line break, which cargo
+    /// cannot pass to the compiler.
+    LineBreak {
+        /// The variable name, such as `DB_CERT`.
+        name: String,
+        /// The YAML key, with its parents joined by `.`.
+        key: String,
+    },
+    /// A YAML key gives a variable name a build script cannot set: an empty
+    /// one, or one holding `=`, a NUL or a line break.
+    InvalidEnvName {
+        /// The variable name.
+        name: String,
+        /// The YAML key, with its parents joined by `.`.
+        key: String,
+    },
 }
 
 /// Why a token is [`Error::Malformed`].
@@ -144,6 +185,16 @@ pub enum ErrorKind {
     NoKey,
     /// See [`Error::KeyNotFound`].
     KeyNotFound,
+    /// See [`Error::InvalidYaml`].
+    InvalidYaml,
+    /// See [`Error::NotAMap`].
+    NotAMap,
+    /// See [`Error::UnsupportedType`].
+    UnsupportedType,
+    /// See [`Error::LineBreak`].
+    LineBreak,
+    /// See [`Error::InvalidEnvName`].
+    InvalidEnvName,
 }
 
 impl ErrorKind {
@@ -164,6 +215,11 @@ impl ErrorKind {
             Self::Io => "io",
             Self::NoKey => "no-key",
             Self::KeyNotFound => "key-not-found",
+            Self::InvalidYaml => "invalid-yaml",
+            Self::NotAMap => "not-a-map",
+            Self::UnsupportedType => "unsupported-type",
+            Self::LineBreak => "line-break",
+            Self::InvalidEnvName => "invalid-env-name",
         }
     }
 }
@@ -192,6 +248,11 @@ impl Error {
             Self::Io { .. } => ErrorKind::Io,
             Self::NoKey { .. } => ErrorKind::NoKey,
             Self::KeyNotFound { .. } => ErrorKind::KeyNotFound,
+            Self::InvalidYaml { .. } => ErrorKind::InvalidYaml,
+            Self::NotAMap { .. } => ErrorKind::NotAMap,
+            Self::UnsupportedType { .. } => ErrorKind::UnsupportedType,
+            Self::LineBreak { .. } => ErrorKind::LineBreak,
+            Self::InvalidEnvName { .. } => ErrorKind::InvalidEnvName,
         }
     }
 
@@ -364,6 +425,43 @@ impl fmt::Display for Error {
                     ),
                 }
             }
+            Self::InvalidYaml {
+                path,
+                line,
+                column,
+                message,
+            } => match path {
+                Some(path) => write!(
+                    f,
+                    "Invalid YAML in \"{}\" at line {line}, column {column}: {message}",
+                    path.display()
+                ),
+                None => write!(f, "Invalid YAML at line {line}, column {column}: {message}"),
+            },
+            Self::NotAMap { path: Some(path) } => write!(
+                f,
+                "Input file \"{}\" is not a valid .yaml file: its top level must be a map \
+                 of keys to values.",
+                path.display()
+            ),
+            Self::NotAMap { path: None } => f.write_str(
+                "Not a valid .yaml file: its top level must be a map of keys to values.",
+            ),
+            Self::UnsupportedType { path, key } => write!(
+                f,
+                "Unsupported value type for \"{key}\"{}: a list. Lists are not supported.",
+                In(path.as_deref())
+            ),
+            Self::LineBreak { name, key } => write!(
+                f,
+                "{name} (\"{key}\") holds a line break, which a build script cannot pass to \
+                 the compiler. Read the file at run time with Env::load instead."
+            ),
+            Self::InvalidEnvName { name, key } => write!(
+                f,
+                "\"{key}\" becomes {name:?}, which is not a name a build script can set: it \
+                 must be non-empty and hold no '=', NUL or line break."
+            ),
         }
     }
 }
