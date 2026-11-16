@@ -1,0 +1,154 @@
+# pnv (Rust)
+
+> A Rust crate and `pnv` command for encrypted secrets in YAML that you commit. Values are
+> AES-256-GCM encrypted `SECRET;v1:` tokens in plain-text YAML; only the symmetric key lives outside
+> the repo. The crate decrypts the YAML in a build script (`pnv::build::Build`) or at run time
+> (`pnv::Env`). It reads and writes the same keys, tokens and `.pnvrc` as the Dart `pnv` tool.
+>
+> This file is for an AI agent working in a Rust repo that uses pnv. `README.md` is the human
+> version. Everything below was checked against `src/` and by running the command, not copied from
+> the README; where they disagree, trust this file and fix the README.
+
+pnv is a **library first**. The command is behind the default `cli` feature. A build script wants
+`pnv = { version = "0.1", default-features = false }` under `[build-dependencies]`.
+
+The command has only `pnv create key` and `pnv verify` so far. For init, flavors, encrypt, decrypt,
+set, get, show and generate env, use the Dart tool (`dart/`): the files are the same.
+
+---
+
+## The model, in one pass
+
+```
+  pnv create key            ──►  a key string. NEVER in the repo.
+                                    │
+  config/app.production.yaml        │            committed. secrets are ciphertext.
+    database:
+      url: SECRET;v1:<b64>   ◄──────┤ written by the Dart tool (pnv set / encrypt)
+                                    │
+     ┌──────────────────────────────┴───────────────────────────┐
+     ▼ build.rs: Build::new(file).emit()                        ▼ run time: Env::load(file)
+  cargo:rustc-env=DATABASE_URL=...                          env.get("DATABASE_URL")
+  src: env!("DATABASE_URL")                                 values live only in memory
+```
+
+A **flavor** is a named key plus the file-name suffix that selects it. `app.production.yaml` is
+flavor `production`; `local.yaml` is `local`. A `.pnvrc` (JSON, written by the Dart tool) names the
+key `storage` directory and the flavors, each with optional alias suffixes:
+`{"storage":"keys","flavors":{"production":["ci"]}}`. Flavor `production` has the key file
+`<storage>/production.key`, and `app.ci.yaml` also uses it.
+
+---
+
+## Finding the key
+
+One lookup serves `Env::load`, `Build` and `pnv verify`. The first match wins:
+
+1. `PNV_KEY_<FLAVOR>` in the environment: flavor in capitals, `-` turned into `_`
+   (`staging-eu` ⇒ `PNV_KEY_STAGING_EU`). Trimmed; blank counts as unset. Needs no `.pnvrc`.
+2. `<storage>/<flavor>.key` from the nearest `.pnvrc`, found by walking up from the current
+   directory. The `.pnvrc` is loaded only when this step is reached.
+3. For each flavor that lists the name as an alias, in file order: its variable, then its key file.
+
+Nothing found ⇒ `Error::KeyNotFound`; nothing to look up ⇒ `Error::NoKey`.
+In code: `KeyLookup::new().file(path)` (or `.flavor(..)`, `.key_file(..)`, `.key(..)`) then
+`.resolve()` ⇒ `ResolvedKey { key, source, flavor }`.
+
+On a build server, set `PNV_KEY_<FLAVOR>` and ship no key file.
+
+---
+
+## Build script
+
+```toml
+[build-dependencies]
+pnv = { version = "0.1", default-features = false }
+```
+
+```rust
+// build.rs
+fn main() {
+    pnv::build::Build::new("app.production.yaml")   // path from the package root
+        .emit()
+        .unwrap_or_else(|err| panic!("{err}"));
+}
+// src/main.rs
+const DATABASE_URL: &str = env!("DATABASE_URL");
+```
+
+`.flavor("x")` overrides the flavor, `.key_file(path)` reads the key from a file, `.instructions()`
+returns the lines instead of printing them. `emit` prints, in this order:
+
+- `cargo:rerun-if-changed=<yaml>`, then the `.pnvrc` and the key file when they were used
+- `cargo:rerun-if-env-changed=PNV_KEY_<FLAVOR>` for every variable the lookup read
+- `cargo:rustc-env=NAME=value` per value, in file order
+
+Values are plain text: strings unquoted, null empty, a float as Dart writes it (`1e3` ⇒ `1000.0`).
+`env!` gives a `&str`, so parse numbers yourself. Nothing is printed unless every value can be
+passed on.
+
+Failures to know:
+
+- **A value holding a line break** (a PEM key, a multi-line string) ⇒ `Error::LineBreak`. Cargo takes
+  one instruction per line. Read that file at run time with `Env::load`.
+- **A key name that is empty or holds `=`, NUL or a line break** ⇒ `Error::InvalidEnvName`.
+- **Secrets are readable in the output.** They are compiled into the binary and kept under
+  `target/`. Do not treat a built binary as secret-free.
+
+---
+
+## Run time
+
+```rust
+let env = pnv::Env::load("config/app.production.yaml")?;   // key found as above
+let url = env.get("DATABASE_URL");                          // Option<&Value>
+```
+
+`Env::read(path, &key)` and `Env::parse(yaml, &key)` take a `Key`
+(`Key::decode(&str)`). `env.to_dotenv()` is byte for byte what the Dart `pnv generate env` writes.
+Nested keys flatten with `_` and upper-case (`db.host` ⇒ `DB_HOST`); a list ⇒ `Error::UnsupportedType`;
+a top level that is not a map ⇒ `Error::NotAMap`. When two keys flatten to the same name, the later
+wins. Nothing is written to the process environment, on purpose.
+
+`Value` is `String | Int | Float | Bool | Null`, by the YAML 1.2 core schema. A decrypted secret is
+always a `String`. `Value` is `Display`.
+
+Also public: `encrypt(&str, &Key)`, `decrypt(&str, &Key)`, `is_secret`, `create_key`,
+`write_key_file`, `Pnvrc`, `flavor_from_path`, `key_env_var`, `verify`, `suspect_plaintext`.
+
+---
+
+## Command
+
+```
+pnv create key                       prints a new key (one line, base64)
+pnv verify [-d, --directory <envs>]  exit 0 clean, exit 1 problems
+```
+
+`pnv verify` needs a `.pnvrc` at or above the current directory, else it prints
+`No .pnvrc found. Run `pnv init` first.` and exits 1 (`init` is not in this command yet; the Dart
+tool has it). It walks `.yaml`/`.yml` under the directory (default: the `.pnvrc` directory),
+skipping `.git`, `target`, `build`, `node_modules`, `.dart_tool`, and reports a secret that does not
+decrypt with its flavor's key, a plaintext value that looks like a secret, and a key `storage`
+directory inside the project. A file needs a key only if it holds a secret.
+
+---
+
+## What must never be committed
+
+- The key files and the `PNV_KEY_*` values.
+- Safe to commit: `.pnvrc`, the encrypted `*.yaml`.
+
+## Source map
+
+| Where to look | For |
+| --- | --- |
+| `src/main.rs` | the command |
+| `src/build.rs` | `Build` and the cargo instructions |
+| `src/lookup.rs` | `KeyLookup`, the key search order |
+| `src/env.rs`, `src/loader.rs` | `Env`, YAML ⇒ values |
+| `src/token.rs`, `src/key.rs` | the `SECRET;` format, keys |
+| `src/pnvrc.rs`, `src/flavor.rs` | `.pnvrc`, flavors, `PNV_KEY_` names |
+| `src/verify.rs`, `src/detector.rs` | `pnv verify` |
+| `../spec/format.md`, `../spec/vectors/` | the shared contract both tools pass |
+| `examples/build-script/` | a crate that runs the build-script recipe |
