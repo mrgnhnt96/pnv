@@ -27,14 +27,22 @@
 
 mod b64;
 mod error;
+mod flavor;
 mod key;
+mod lookup;
+mod pnvrc;
 mod token;
 
 #[cfg(test)]
 mod vectors;
 
 pub use error::{Error, ErrorKind, MalformedReason, Result};
-pub use key::{KEY_ID_LENGTH, Key, KeyId, MIN_KEY_LENGTH, NEW_KEY_LENGTH, create_key};
+pub use flavor::{KEY_ENV_PREFIX, flavor_from_path, is_valid_flavor_name, key_env_var};
+pub use key::{
+    KEY_ID_LENGTH, Key, KeyId, MIN_KEY_LENGTH, NEW_KEY_LENGTH, create_key, write_key_file,
+};
+pub use lookup::{KeyLookup, KeySource, ResolvedKey};
+pub use pnvrc::{Flavor, KEY_FILE_EXTENSION, PNVRC_FILE_NAME, Pnvrc};
 pub use token::{
     IV_LENGTH, SECRET_PREFIX, TAG_LENGTH, Token, Version, decrypt, encrypt, is_secret,
 };

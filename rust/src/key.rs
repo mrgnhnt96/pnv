@@ -1,4 +1,7 @@
 use std::fmt;
+use std::fs;
+use std::io::{self, Write};
+use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
@@ -56,6 +59,18 @@ impl Key {
     /// As [`Key::decode`]. An empty file is [`Error::KeyTooShort`].
     pub fn from_key_file(contents: &str) -> Result<Self> {
         Self::decode(contents.trim())
+    }
+
+    /// Reads and decodes a key file.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Io`] when the file cannot be read, then as
+    /// [`Key::from_key_file`].
+    pub fn read_file(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+        let contents = fs::read_to_string(path).map_err(|err| Error::io("read", path, &err))?;
+        Self::from_key_file(&contents)
     }
 
     /// Wraps raw key bytes.
@@ -123,6 +138,43 @@ pub fn create_key() -> Result<String> {
     Ok(b64::encode_url_safe(&bytes))
 }
 
+/// Writes a key file: the key string with no trailing newline, readable and
+/// writable by its owner only (mode `0600`) where the platform allows it.
+///
+/// The directory is created if needed. An existing file is replaced and its
+/// mode tightened too.
+///
+/// # Errors
+///
+/// [`Error::Io`] when the directory or file cannot be written.
+pub fn write_key_file(path: impl AsRef<Path>, key: &str) -> Result<()> {
+    let path = path.as_ref();
+    if let Some(dir) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+        fs::create_dir_all(dir).map_err(|err| Error::io("create", dir, &err))?;
+    }
+    write_owner_only(path, key.as_bytes()).map_err(|err| Error::io("write", path, &err))
+}
+
+fn write_owner_only(path: &Path, contents: &[u8]) -> io::Result<()> {
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+        options.mode(0o600);
+        let mut file = options.open(path)?;
+        file.set_permissions(fs::Permissions::from_mode(0o600))?;
+        file.write_all(contents)
+    }
+
+    #[cfg(not(unix))]
+    {
+        options.open(path)?.write_all(contents)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,6 +197,37 @@ mod tests {
             Key::from_key_file("\n").unwrap_err(),
             Error::KeyTooShort { len: 0 }
         );
+    }
+
+    #[test]
+    fn key_files_are_owner_only_with_no_newline() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keys/local.key");
+        let key = create_key().unwrap();
+
+        write_key_file(&path, "old key, longer than the new one").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        }
+        write_key_file(&path, &key).unwrap();
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), key);
+        assert_eq!(Key::read_file(&path).unwrap().encode(), key);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&path).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+    }
+
+    #[test]
+    fn a_missing_key_file_is_an_io_error() {
+        let err = Key::read_file("/no/such/dir/x.key").unwrap_err();
+        assert_eq!(err.kind().as_str(), "io");
+        assert!(err.to_string().contains("/no/such/dir/x.key"));
     }
 
     #[test]
