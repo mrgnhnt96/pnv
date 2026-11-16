@@ -12,8 +12,9 @@
 pnv is a **library first**. The command is behind the default `cli` feature. A build script wants
 `pnv = { version = "0.1", default-features = false }` under `[build-dependencies]`.
 
-The command has init, create key, create/delete flavor, encrypt, decrypt, generate env and verify.
-For set, get and show, use the Dart tool (`dart/`): the files are the same.
+The command has init, create key, create/delete flavor, encrypt, decrypt, set, get, show, generate env
+and verify. Import, rotate and the Dart code generators stay in the Dart tool (`dart/`): the files are
+the same.
 
 ---
 
@@ -24,7 +25,7 @@ For set, get and show, use the Dart tool (`dart/`): the files are the same.
                                     │
   config/app.production.yaml        │            committed. secrets are ciphertext.
     database:
-      url: SECRET;v1:<b64>   ◄──────┤ written by the Dart tool (pnv set / encrypt)
+      url: SECRET;v1:<b64>   ◄──────┤ written by pnv set (either tool)  
                                     │
      ┌──────────────────────────────┴───────────────────────────┐
      ▼ build.rs: Build::new(file).emit()                        ▼ run time: Env::load(file)
@@ -113,6 +114,12 @@ wins. Nothing is written to the process environment, on purpose.
 `Value` is `String | Int | Float | Bool | Null`, by the YAML 1.2 core schema. A decrypted secret is
 always a `String`. `Value` is `Display`.
 
+`Document` edits one file without disturbing it: `Document::read(path)` / `parse(yaml)`,
+`get("a.b") -> Value` (`NoSuchKey`, `IsAGroup`), `set("a.b", value)` (creates groups; refuses a path
+through a value or null with `NotAGroup`; comments, order and layout kept byte for byte),
+`decrypted(&key) -> String` (only `SECRET;` scalars replaced), `has_secrets()`, `as_str()`.
+Key paths split on `.`, each part trimmed; an empty part ⇒ `InvalidKeyPath`.
+
 Also public: `encrypt(&str, &Key)`, `decrypt(&str, &Key)`, `is_secret`, `create_key`,
 `write_key_file`, `Pnvrc`, `flavor_from_path`, `key_env_var`, `verify`, `suspect_plaintext`.
 
@@ -132,6 +139,10 @@ pnv create flavor -n <name> [--force]                   refuses existing flavor 
 pnv delete flavor -n <name>... --force                  refuses without --force; unknown name deletes nothing
 pnv encrypt|enc|e|encode [KEY] <value>...               one SECRET;v1: token per line
 pnv decrypt|dec|d|decode [KEY] <token>...               one value per line; checks the key id
+pnv set <a.b> (<value>... | --stdin) -i <x.yaml> [--plain] [KEY]
+                                                        edits in place; nothing written on error
+pnv get <a.b> -i <x.yaml> [KEY]                         one value; plain values as-is; group = error
+pnv show <x.yaml> | --file <x.yaml> [KEY]               whole file decrypted; git textconv safe
 pnv generate env (-i <x.yaml> | -d <dir>) [-o outputs] [KEY]
                                                         <output>/<stem>.env, all rendered before any write
 pnv verify [-d, --directory <envs>]                     exit 0 clean, exit 1 problems
@@ -140,6 +151,11 @@ pnv verify [-d, --directory <envs>]                     exit 0 clean, exit 1 pro
 `init` storage defaults to `~/.<project dir name>`; it adopts `*.key` files already in storage.
 `generate env`: with KEY, one key for every file; without, each file's flavor comes from its name.
 `--flavor` + `-d` keeps only that flavor's group; a flavor not in an existing `.pnvrc` is an error.
+
+`set`/`get`/`show` without KEY use the flavor the file name implies. `set` joins several value words
+with spaces, `--stdin` reads one line, `--plain` writes unencrypted and needs no key; the path is
+checked before the key is looked for. `get` prints null as `null`. `show` prints a file with no
+secrets byte for byte, even invalid YAML, and writes nothing else to stdout or stderr.
 
 `pnv verify` needs a `.pnvrc` at or above the current directory, else it prints
 `No .pnvrc found. Run `pnv init` first.` and exits 1. It walks `.yaml`/`.yml` under the directory (default: the `.pnvrc` directory),
@@ -162,6 +178,7 @@ directory inside the project. A file needs a key only if it holds a secret.
 | `src/build.rs` | `Build` and the cargo instructions |
 | `src/lookup.rs` | `KeyLookup`, the key search order |
 | `src/env.rs`, `src/loader.rs` | `Env`, YAML ⇒ values |
+| `src/document.rs` | `Document`: get/set/decrypt one file in place (yaml-edit) |
 | `src/token.rs`, `src/key.rs` | the `SECRET;` format, keys |
 | `src/pnvrc.rs`, `src/flavor.rs` | `.pnvrc`, flavors, `PNV_KEY_` names |
 | `src/verify.rs`, `src/detector.rs` | `pnv verify` |

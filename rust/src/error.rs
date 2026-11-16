@@ -138,6 +138,30 @@ pub enum Error {
         /// The YAML key, with its parents joined by `.`.
         key: String,
     },
+    /// A key path such as `app.api-key` has an empty part.
+    InvalidKeyPath {
+        /// The path as given.
+        path: String,
+    },
+    /// A key path names nothing in the file.
+    NoSuchKey {
+        /// The key path, its parts joined by `.`.
+        key: String,
+        /// The file, when it was read from one.
+        path: Option<PathBuf>,
+    },
+    /// A key path names a group of values, where one value was wanted.
+    IsAGroup {
+        /// The key path, its parts joined by `.`.
+        key: String,
+    },
+    /// A value cannot be set under a key that holds a value, not a group.
+    NotAGroup {
+        /// The part of the path that holds a value.
+        at: String,
+        /// The key path being set.
+        key: String,
+    },
 }
 
 /// Why a token is [`Error::Malformed`].
@@ -195,6 +219,14 @@ pub enum ErrorKind {
     LineBreak,
     /// See [`Error::InvalidEnvName`].
     InvalidEnvName,
+    /// See [`Error::InvalidKeyPath`].
+    InvalidKeyPath,
+    /// See [`Error::NoSuchKey`].
+    NoSuchKey,
+    /// See [`Error::IsAGroup`].
+    IsAGroup,
+    /// See [`Error::NotAGroup`].
+    NotAGroup,
 }
 
 impl ErrorKind {
@@ -220,6 +252,10 @@ impl ErrorKind {
             Self::UnsupportedType => "unsupported-type",
             Self::LineBreak => "line-break",
             Self::InvalidEnvName => "invalid-env-name",
+            Self::InvalidKeyPath => "invalid-key-path",
+            Self::NoSuchKey => "no-such-key",
+            Self::IsAGroup => "is-a-group",
+            Self::NotAGroup => "not-a-group",
         }
     }
 }
@@ -253,6 +289,10 @@ impl Error {
             Self::UnsupportedType { .. } => ErrorKind::UnsupportedType,
             Self::LineBreak { .. } => ErrorKind::LineBreak,
             Self::InvalidEnvName { .. } => ErrorKind::InvalidEnvName,
+            Self::InvalidKeyPath { .. } => ErrorKind::InvalidKeyPath,
+            Self::NoSuchKey { .. } => ErrorKind::NoSuchKey,
+            Self::IsAGroup { .. } => ErrorKind::IsAGroup,
+            Self::NotAGroup { .. } => ErrorKind::NotAGroup,
         }
     }
 
@@ -461,6 +501,22 @@ impl fmt::Display for Error {
                 f,
                 "\"{key}\" becomes {name:?}, which is not a name a build script can set: it \
                  must be non-empty and hold no '=', NUL or line break."
+            ),
+            Self::InvalidKeyPath { path } => write!(
+                f,
+                "Invalid key path \"{path}\". Use dots to separate keys, e.g. \"app.api-key\"."
+            ),
+            Self::NoSuchKey { key, path } => match path {
+                Some(path) => write!(f, "No such key \"{key}\" in \"{}\".", path.display()),
+                None => write!(f, "No such key \"{key}\"."),
+            },
+            Self::IsAGroup { key } => write!(
+                f,
+                "\"{key}\" is a group, not a value. Name one of its keys."
+            ),
+            Self::NotAGroup { at, key } => write!(
+                f,
+                "\"{at}\" is a value, not a group, so \"{key}\" cannot be set under it."
             ),
         }
     }

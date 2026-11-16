@@ -4,6 +4,7 @@
 //! runs the same on a laptop and on a build server.
 
 mod crypt;
+mod edit;
 mod flavor;
 mod generate;
 mod init;
@@ -62,6 +63,12 @@ pub enum Command {
     /// Decrypt a secret.
     #[command(visible_aliases = ["dec", "d", "decode"])]
     Decrypt(crypt::CryptArgs),
+    /// Encrypt a value into a .yaml file, in place.
+    Set(edit::SetArgs),
+    /// Read one value out of a .yaml file, decrypted.
+    Get(edit::GetArgs),
+    /// Print a .yaml file with its secrets decrypted.
+    Show(edit::ShowArgs),
     /// Generates files for your environment.
     #[command(subcommand)]
     Generate(Generate),
@@ -185,6 +192,9 @@ pub fn run(command: Command, log: &Log) -> Outcome {
         Command::Delete(Delete::Flavor(args)) => flavor::delete(&args, log),
         Command::Encrypt(args) => crypt::encrypt(&args, log),
         Command::Decrypt(args) => crypt::decrypt(&args, log),
+        Command::Set(args) => edit::set(&args, log),
+        Command::Get(args) => edit::get(&args, log),
+        Command::Show(args) => edit::show(&args, log),
         Command::Generate(Generate::Env(args)) => generate::env(&args, log),
         Command::Verify(args) => verify::run(&args, log),
     }

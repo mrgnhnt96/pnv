@@ -30,6 +30,11 @@ impl Log {
         println!("{message}");
     }
 
+    /// As [`Log::out`], with no line break added.
+    pub fn write(&self, text: impl Display) {
+        print!("{text}");
+    }
+
     pub fn info(&self, message: impl Display) {
         if self.level >= Level::Info {
             println!("{message}");
