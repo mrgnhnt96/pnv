@@ -12,8 +12,8 @@
 pnv is a **library first**. The command is behind the default `cli` feature. A build script wants
 `pnv = { version = "0.1", default-features = false }` under `[build-dependencies]`.
 
-The command has only `pnv create key` and `pnv verify` so far. For init, flavors, encrypt, decrypt,
-set, get, show and generate env, use the Dart tool (`dart/`): the files are the same.
+The command has init, create key, create/delete flavor, encrypt, decrypt, generate env and verify.
+For set, get and show, use the Dart tool (`dart/`): the files are the same.
 
 ---
 
@@ -120,14 +120,29 @@ Also public: `encrypt(&str, &Key)`, `decrypt(&str, &Key)`, `is_secret`, `create_
 
 ## Command
 
+Never prompts; every input is a flag. Exit 0 on success, 1 on any error (bad flags too, not 2).
+Errors go to stderr as `❌ <message>`. KEY = `-k, --key <key>` | `-f, --key-file <path>` |
+`--flavor <name>` (env `PNV_KEY_<FLAVOR>` is checked first, as in the lookup above).
+Global: `--quiet` (errors + requested output only), `--loud` (every step; wins over --quiet).
+
 ```
-pnv create key                       prints a new key (one line, base64)
-pnv verify [-d, --directory <envs>]  exit 0 clean, exit 1 problems
+pnv init [-s <storage>] [-f <flavor>]... [--gitignore]  .pnvrc here or nearest above; never replaces a key
+pnv create key                                          prints a new key (one line, base64)
+pnv create flavor -n <name> [--force]                   refuses existing flavor or key file without --force
+pnv delete flavor -n <name>... --force                  refuses without --force; unknown name deletes nothing
+pnv encrypt|enc|e|encode [KEY] <value>...               one SECRET;v1: token per line
+pnv decrypt|dec|d|decode [KEY] <token>...               one value per line; checks the key id
+pnv generate env (-i <x.yaml> | -d <dir>) [-o outputs] [KEY]
+                                                        <output>/<stem>.env, all rendered before any write
+pnv verify [-d, --directory <envs>]                     exit 0 clean, exit 1 problems
 ```
 
+`init` storage defaults to `~/.<project dir name>`; it adopts `*.key` files already in storage.
+`generate env`: with KEY, one key for every file; without, each file's flavor comes from its name.
+`--flavor` + `-d` keeps only that flavor's group; a flavor not in an existing `.pnvrc` is an error.
+
 `pnv verify` needs a `.pnvrc` at or above the current directory, else it prints
-`No .pnvrc found. Run `pnv init` first.` and exits 1 (`init` is not in this command yet; the Dart
-tool has it). It walks `.yaml`/`.yml` under the directory (default: the `.pnvrc` directory),
+`No .pnvrc found. Run `pnv init` first.` and exits 1. It walks `.yaml`/`.yml` under the directory (default: the `.pnvrc` directory),
 skipping `.git`, `target`, `build`, `node_modules`, `.dart_tool`, and reports a secret that does not
 decrypt with its flavor's key, a plaintext value that looks like a secret, and a key `storage`
 directory inside the project. A file needs a key only if it holds a secret.
@@ -143,7 +158,7 @@ directory inside the project. A file needs a key only if it holds a secret.
 
 | Where to look | For |
 | --- | --- |
-| `src/main.rs` | the command |
+| `src/main.rs`, `src/cli/` | the command |
 | `src/build.rs` | `Build` and the cargo instructions |
 | `src/lookup.rs` | `KeyLookup`, the key search order |
 | `src/env.rs`, `src/loader.rs` | `Env`, YAML ⇒ values |
