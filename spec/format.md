@@ -224,6 +224,10 @@ A name resolves to a **group**: the flavor and all of its aliases.
 2. If there is no `pubspec.yaml`, walk up from the current directory and take the nearest `.pnvrc`.
 3. Otherwise there is none.
 
+The Rust crate skips step 1 and always takes the nearest `.pnvrc`, so a Cargo workspace can keep one
+at its root. In a Dart project the two agree whenever `.pnvrc` sits next to `pubspec.yaml`, which is
+where `pnv init` puts it.
+
 ### Writing `.pnvrc`
 
 Write `storage` first, then `flavors`, as JSON indented with two spaces, with no trailing newline.
@@ -240,6 +244,13 @@ How a command picks the key, first match wins:
    1. `<storage>/<name>.key`, if that file exists;
    2. otherwise the first flavor, in file order, whose alias list contains `<name>` and whose key
       file exists.
+
+   The Rust crate also reads a key from the environment, so a build server needs no `.pnvrc` or key
+   file. Before each key file in step 3 it checks `PNV_KEY_<FLAVOR>`: `PNV_KEY_` and that flavor's
+   name, uppercased, with `-` turned into `_` (`staging-eu` gives `PNV_KEY_STAGING_EU`). The value is
+   read like a key file, trimmed, and an empty or blank value counts as unset. So for `<name>` the
+   order is `PNV_KEY_<NAME>`, `<storage>/<name>.key`, then for each flavor listing it as an alias,
+   that flavor's variable and then its key file. The Dart tool does not read these variables.
 4. Commands that act on a file (`set`, `get`, `show`, `verify`, `rotate`, `import`,
    `generate env --file`) and were given none of the above take the flavor from the file's name (see
    [below](#flavor-from-a-file-name)) and resolve it as in step 3.

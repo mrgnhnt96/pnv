@@ -1,9 +1,10 @@
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 use serde_json::Value;
 
 use crate::token::encrypt_with_iv;
-use crate::{Key, Token, Version, decrypt};
+use crate::{Key, Pnvrc, Token, Version, decrypt, flavor_from_path};
 
 fn load(name: &str) -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -100,5 +101,59 @@ fn token_encrypt() {
         let token = encrypt_with_iv(str_of(case, "plaintext"), &key, iv);
 
         assert_eq!(token, str_of(case, "token"), "{case}");
+    }
+}
+
+#[test]
+fn flavor_from_path_cases() {
+    let file = load("flavor_from_path.json");
+    for case in cases(&file, "cases") {
+        let path = str_of(case, "path");
+        assert_eq!(flavor_from_path(path), str_of(case, "flavor"), "{path}");
+    }
+}
+
+fn parse_pnvrc(value: &Value) -> crate::Result<Option<Pnvrc>> {
+    Pnvrc::parse(&value.to_string())
+}
+
+#[test]
+fn pnvrc_parse() {
+    let file = load("pnvrc.json");
+    for case in cases(&file, "parse") {
+        let name = name_of(case);
+        let result = parse_pnvrc(&case["pnvrc"]);
+
+        if let Some(kind) = case["error"].as_str() {
+            let err = result.expect_err(&name);
+            assert_eq!(err.kind().as_str(), kind, "{name}: {err}");
+            continue;
+        }
+
+        assert_eq!(case["valid"], Value::Bool(true), "{name}");
+        let pnvrc = result
+            .unwrap_or_else(|err| panic!("{name}: {err}"))
+            .unwrap_or_else(|| panic!("{name}: read as no .pnvrc"));
+        assert_eq!(pnvrc.storage(), str_of(&case["pnvrc"], "storage"), "{name}");
+
+        let reparsed = Pnvrc::parse(&pnvrc.to_json()).unwrap().unwrap();
+        assert_eq!(reparsed, pnvrc, "{name}: round trip");
+    }
+}
+
+#[test]
+fn pnvrc_groups() {
+    let file = load("pnvrc.json");
+    let groups = &file["groups"];
+    let pnvrc = parse_pnvrc(&groups["pnvrc"]).unwrap().unwrap();
+
+    for case in cases(groups, "cases") {
+        let name = str_of(case, "name");
+        let actual: Option<BTreeSet<&str>> =
+            pnvrc.group(name).map(|flavor| flavor.names().collect());
+        let expected: Option<BTreeSet<&str>> = case["group"]
+            .as_array()
+            .map(|names| names.iter().map(|n| n.as_str().unwrap()).collect());
+        assert_eq!(actual, expected, "{name}");
     }
 }

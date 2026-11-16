@@ -1,4 +1,6 @@
 use std::fmt;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use crate::key::MIN_KEY_LENGTH;
 
@@ -45,6 +47,56 @@ pub enum Error {
     },
     /// The operating system could not supply random bytes.
     Random(getrandom::Error),
+    /// A `.pnvrc` is not valid JSON, or a field is missing or of the wrong
+    /// type.
+    InvalidPnvrc {
+        /// The file, when it was read from one.
+        path: Option<PathBuf>,
+        /// What is wrong with it.
+        reason: String,
+    },
+    /// A name appears more than once among a `.pnvrc`'s flavors and aliases.
+    FlavorConflict {
+        /// The file, when it was read from one.
+        path: Option<PathBuf>,
+        /// The name that appears twice.
+        name: String,
+    },
+    /// A new flavor's name has characters other than letters, digits, `_`
+    /// and `-`.
+    InvalidFlavorName {
+        /// The name that was refused.
+        name: String,
+    },
+    /// The home directory is needed to expand `~` and is not set.
+    NoHome,
+    /// A file could not be read or written.
+    Io {
+        /// What was being done, such as `read`.
+        action: &'static str,
+        /// The file.
+        path: PathBuf,
+        /// The operating system's kind of error.
+        kind: io::ErrorKind,
+        /// The operating system's message.
+        message: String,
+    },
+    /// No key, key file or flavor was given, and none could be inferred.
+    NoKey {
+        /// The file being worked on, whose name implies no flavor.
+        file: Option<PathBuf>,
+    },
+    /// A flavor was named, but none of the places its key may be holds one.
+    KeyNotFound {
+        /// The flavor or alias that was looked up.
+        flavor: String,
+        /// The environment variable that was checked.
+        env_var: String,
+        /// The key file that was checked; `None` when there is no `.pnvrc`.
+        key_file: Option<PathBuf>,
+        /// The file being worked on, when its name gave the flavor.
+        file: Option<PathBuf>,
+    },
 }
 
 /// Why a token is [`Error::Malformed`].
@@ -78,6 +130,20 @@ pub enum ErrorKind {
     DecryptFailed,
     /// See [`Error::Random`].
     Random,
+    /// See [`Error::InvalidPnvrc`].
+    InvalidPnvrc,
+    /// See [`Error::FlavorConflict`].
+    FlavorConflict,
+    /// See [`Error::InvalidFlavorName`].
+    InvalidFlavorName,
+    /// See [`Error::NoHome`].
+    NoHome,
+    /// See [`Error::Io`].
+    Io,
+    /// See [`Error::NoKey`].
+    NoKey,
+    /// See [`Error::KeyNotFound`].
+    KeyNotFound,
 }
 
 impl ErrorKind {
@@ -91,6 +157,13 @@ impl ErrorKind {
             Self::WrongKey => "wrong-key",
             Self::DecryptFailed => "decrypt-failed",
             Self::Random => "random",
+            Self::InvalidPnvrc => "invalid",
+            Self::FlavorConflict => "conflict",
+            Self::InvalidFlavorName => "invalid-flavor-name",
+            Self::NoHome => "no-home",
+            Self::Io => "io",
+            Self::NoKey => "no-key",
+            Self::KeyNotFound => "key-not-found",
         }
     }
 }
@@ -112,6 +185,13 @@ impl Error {
             Self::WrongKey { .. } => ErrorKind::WrongKey,
             Self::DecryptFailed { .. } => ErrorKind::DecryptFailed,
             Self::Random(_) => ErrorKind::Random,
+            Self::InvalidPnvrc { .. } => ErrorKind::InvalidPnvrc,
+            Self::FlavorConflict { .. } => ErrorKind::FlavorConflict,
+            Self::InvalidFlavorName { .. } => ErrorKind::InvalidFlavorName,
+            Self::NoHome => ErrorKind::NoHome,
+            Self::Io { .. } => ErrorKind::Io,
+            Self::NoKey { .. } => ErrorKind::NoKey,
+            Self::KeyNotFound { .. } => ErrorKind::KeyNotFound,
         }
     }
 
@@ -126,7 +206,7 @@ impl Error {
             | Self::Malformed { context, .. }
             | Self::WrongKey { context }
             | Self::DecryptFailed { context } => *context = Some(where_.into()),
-            Self::InvalidKey | Self::KeyTooShort { .. } | Self::Random(_) => {}
+            _ => {}
         }
         self
     }
@@ -138,7 +218,34 @@ impl Error {
             | Self::Malformed { context, .. }
             | Self::WrongKey { context }
             | Self::DecryptFailed { context } => context.as_deref(),
-            Self::InvalidKey | Self::KeyTooShort { .. } | Self::Random(_) => None,
+            _ => None,
+        }
+    }
+
+    pub(crate) fn io(action: &'static str, path: &Path, err: &io::Error) -> Self {
+        Self::Io {
+            action,
+            path: path.to_path_buf(),
+            kind: err.kind(),
+            message: err.to_string(),
+        }
+    }
+
+    pub(crate) fn with_pnvrc_path(mut self, file: &Path) -> Self {
+        if let Self::InvalidPnvrc { path, .. } | Self::FlavorConflict { path, .. } = &mut self {
+            *path = Some(file.to_path_buf());
+        }
+        self
+    }
+}
+
+struct In<'a>(Option<&'a Path>);
+
+impl fmt::Display for In<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            Some(path) => write!(f, " in {}", path.display()),
+            None => Ok(()),
         }
     }
 }
@@ -199,6 +306,64 @@ impl fmt::Display for Error {
                  wrong key."
             ),
             Self::Random(err) => write!(f, "Could not get random bytes from the system: {err}"),
+            Self::InvalidPnvrc { path, reason } => {
+                write!(f, "Invalid .pnvrc{}: {reason}", In(path.as_deref()))
+            }
+            Self::FlavorConflict { path, name } => write!(
+                f,
+                "Flavors have conflicts{}: \"{name}\" is used more than once. Every flavor \
+                 and alias must be unique.",
+                In(path.as_deref())
+            ),
+            Self::InvalidFlavorName { name } => write!(
+                f,
+                "Invalid flavor name \"{name}\": a flavor name can only contain letters, \
+                 numbers, underscores and dashes."
+            ),
+            Self::NoHome => f.write_str(
+                "Failed to find the home directory: set HOME (USERPROFILE on Windows) to expand \
+                 `~` in the .pnvrc storage path.",
+            ),
+            Self::Io {
+                action,
+                path,
+                message,
+                ..
+            } => write!(f, "Could not {action} \"{}\": {message}", path.display()),
+            Self::NoKey { file: None } => f.write_str("Missing key, key file, or flavor."),
+            Self::NoKey { file: Some(file) } => write!(
+                f,
+                "No key for \"{}\": its name implies no flavor. Pass a key, key file, or \
+                 flavor.",
+                file.display()
+            ),
+            Self::KeyNotFound {
+                flavor,
+                env_var,
+                key_file,
+                file,
+            } => {
+                match file {
+                    Some(file) => write!(
+                        f,
+                        "No key for \"{}\": its name implies flavor \"{flavor}\", which has \
+                         no key. ",
+                        file.display()
+                    )?,
+                    None => write!(f, "No key for flavor \"{flavor}\". ")?,
+                }
+                match key_file {
+                    Some(key_file) => write!(
+                        f,
+                        "{env_var} is not set and \"{}\" does not exist.",
+                        key_file.display()
+                    ),
+                    None => write!(
+                        f,
+                        "{env_var} is not set and no .pnvrc was found. Run `pnv init` first."
+                    ),
+                }
+            }
         }
     }
 }
