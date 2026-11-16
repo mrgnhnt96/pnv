@@ -1,0 +1,83 @@
+{
+  "description": "Key strings as they appear in a key file (after trimming) or after --key. \"bytes\" is the decoded key, \"aes_key\" is SHA-256(bytes), \"key_id\" is the first 4 bytes of SHA-256(\"pnv:key-id:v1\" || bytes). An \"error\" case must be refused before any secret is touched.",
+  "cases": [
+    {
+      "name": "32-byte key as written by pnv 2.x (base64url)",
+      "key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "bytes": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "aes_key": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd",
+      "key_id": "8a471ecb"
+    },
+    {
+      "name": "another 32-byte key",
+      "key": "gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp8=",
+      "bytes": "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
+      "aes_key": "82d86408530b765e46ebf47807095027e807bc08674b0de77ee5ef2fae7d0492",
+      "key_id": "119b87a0"
+    },
+    {
+      "name": "12-byte key as written before 2.0",
+      "key": "oI0tNittVqP_nLwY",
+      "bytes": "a08d2d362b6d56a3ff9cbc18",
+      "aes_key": "fe451fbcbc07d852f63ca4bc9e968c37235dba705cefe9efc74e8edb9b1293af",
+      "key_id": "8fc2c735"
+    },
+    {
+      "name": "33-byte key in the standard alphabet",
+      "key": "++++++++++++++++++++++++++++++++++++++++++++",
+      "bytes": "fbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbe",
+      "aes_key": "b5d09325731455d8e1c8e9531f4944e907a231d70fa65e40334304a4071c303a",
+      "key_id": "b6a8aaa7"
+    },
+    {
+      "name": "the same bytes in the URL-safe alphabet",
+      "key": "--------------------------------------------",
+      "bytes": "fbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbefbe",
+      "aes_key": "b5d09325731455d8e1c8e9531f4944e907a231d70fa65e40334304a4071c303a",
+      "key_id": "b6a8aaa7"
+    },
+    {
+      "name": "exactly 12 bytes",
+      "key": "QUJDREVGR0hJSktM",
+      "bytes": "4142434445464748494a4b4c",
+      "aes_key": "922429ccdb7045d11143e2e3982a11afc11b537bf259d88d2425fa8806e86e78",
+      "key_id": "83d49ce4"
+    },
+    {
+      "name": "11 bytes",
+      "key": "QUJDREVGR0hJSks=",
+      "error": "key-too-short"
+    },
+    {
+      "name": "3 bytes",
+      "key": "YWJj",
+      "error": "key-too-short"
+    },
+    {
+      "name": "empty",
+      "key": "",
+      "error": "key-too-short"
+    },
+    {
+      "name": "not base64",
+      "key": "not a key!",
+      "error": "invalid-key"
+    },
+    {
+      "name": "missing padding",
+      "key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "error": "invalid-key"
+    },
+    {
+      "name": "non-zero trailing bits",
+      "key": "QUJDREVGR0hJSktMTQB=",
+      "error": "invalid-key"
+    },
+    {
+      "name": "surrounding whitespace",
+      "note": "a key file is trimmed before decoding; a --key value is not",
+      "key": " AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "error": "invalid-key"
+    }
+  ]
+}

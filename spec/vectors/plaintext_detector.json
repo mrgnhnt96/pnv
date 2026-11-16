@@ -1,0 +1,400 @@
+{
+  "description": "What pnv verify reports as a secret left in plaintext. \"values\" calls the detector on one value; \"files\" runs it over every leaf of a YAML file the way verify does, listing the dotted paths that are flagged, in file order.",
+  "values": [
+    {
+      "key_path": "app.value",
+      "value": "sk-live-1234567890abcdefghij",
+      "flagged": true,
+      "reason": "looks like an OpenAI-style API key"
+    },
+    {
+      "key_path": "app.value",
+      "value": "sk-short",
+      "flagged": false
+    },
+    {
+      "key_path": "app.value",
+      "value": "ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+      "flagged": true,
+      "reason": "looks like a GitHub token"
+    },
+    {
+      "key_path": "app.value",
+      "value": "gho_abcdefghijklmnopqrst",
+      "flagged": true,
+      "reason": "looks like a GitHub token"
+    },
+    {
+      "key_path": "app.value",
+      "value": "github_pat_11ABCDEFG0123456789_abcdefghij",
+      "flagged": true,
+      "reason": "looks like a GitHub fine-grained token"
+    },
+    {
+      "key_path": "app.value",
+      "value": "AKIAIOSFODNN7EXAMPLE",
+      "flagged": true,
+      "reason": "looks like an AWS access key id"
+    },
+    {
+      "key_path": "app.value",
+      "value": "ASIAIOSFODNN7EXAMPLE",
+      "flagged": true,
+      "reason": "looks like an AWS access key id"
+    },
+    {
+      "key_path": "app.value",
+      "value": "akiaiosfodnn7example",
+      "flagged": false
+    },
+    {
+      "key_path": "app.value",
+      "value": "xoxb-1234567890-abcdefghij",
+      "flagged": true,
+      "reason": "looks like a Slack token"
+    },
+    {
+      "key_path": "app.value",
+      "value": "sk_live_abcdefghijklmnop1234",
+      "flagged": true,
+      "reason": "looks like a Stripe key"
+    },
+    {
+      "key_path": "app.value",
+      "value": "rk_test_abcdefghijklmnop1234",
+      "flagged": true,
+      "reason": "looks like a Stripe key"
+    },
+    {
+      "key_path": "app.value",
+      "value": "AIzaSyA1234567890abcdefghijklmnopqrstuv",
+      "flagged": true,
+      "reason": "looks like a Google API key"
+    },
+    {
+      "key_path": "app.value",
+      "value": "eyJnot-a-real-header.not-a-real-payload.not-a-real-signature",
+      "flagged": true,
+      "reason": "looks like a JWT"
+    },
+    {
+      "key_path": "app.value",
+      "value": "eyJnot-a-real-header.not-a-real-payload",
+      "flagged": false
+    },
+    {
+      "key_path": "app.blob",
+      "value": "-----BEGIN RSA PRIVATE KEY-----\nMIIE",
+      "flagged": true,
+      "reason": "looks like a private key block"
+    },
+    {
+      "key_path": "app.blob",
+      "value": "header\n-----BEGIN PRIVATE KEY-----\nMIIE",
+      "flagged": true,
+      "reason": "looks like a private key block"
+    },
+    {
+      "key_path": "app.blob",
+      "value": "-----BEGIN PUBLIC KEY-----\nMIIB",
+      "flagged": false
+    },
+    {
+      "key_path": "app.url",
+      "value": "postgres://user:pa55word@db.example.com:5432/app",
+      "flagged": true,
+      "reason": "looks like a connection string with a password"
+    },
+    {
+      "key_path": "app.url",
+      "value": "HTTPS://user:pw@example.com",
+      "flagged": true,
+      "reason": "looks like a connection string with a password"
+    },
+    {
+      "key_path": "app.url",
+      "value": "https://user@example.com",
+      "flagged": false
+    },
+    {
+      "key_path": "app.url",
+      "value": "https://example.com:8080/path",
+      "flagged": false
+    },
+    {
+      "key_path": "app.value",
+      "value": "  sk-live-1234567890abcdefghij  ",
+      "flagged": true,
+      "reason": "looks like an OpenAI-style API key"
+    },
+    {
+      "key_path": "app.password",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"password\" but the value is not encrypted"
+    },
+    {
+      "key_path": "db.api_key",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"api_key\" but the value is not encrypted"
+    },
+    {
+      "key_path": "db.apikey",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"apikey\" but the value is not encrypted"
+    },
+    {
+      "key_path": "service.token",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"token\" but the value is not encrypted"
+    },
+    {
+      "key_path": "x.client-secret",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"client-secret\" but the value is not encrypted"
+    },
+    {
+      "key_path": "y.credentials",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"credentials\" but the value is not encrypted"
+    },
+    {
+      "key_path": "y.Password",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"Password\" but the value is not encrypted"
+    },
+    {
+      "key_path": "y.PRIVATE_KEY",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"PRIVATE_KEY\" but the value is not encrypted"
+    },
+    {
+      "key_path": "y.signing.cert",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"cert\" but the value is not encrypted"
+    },
+    {
+      "key_path": "y.salt",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"salt\" but the value is not encrypted"
+    },
+    {
+      "key_path": "y.auth",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"auth\" but the value is not encrypted"
+    },
+    {
+      "key_path": "y.pwd",
+      "value": "somethingreal123",
+      "flagged": true,
+      "reason": "the key is named \"pwd\" but the value is not encrypted"
+    },
+    {
+      "key_path": "password.name",
+      "value": "somethingreal123",
+      "flagged": false
+    },
+    {
+      "key_path": "y.monkey",
+      "value": "somethingreal123",
+      "flagged": false
+    },
+    {
+      "key_path": "y.keyboard",
+      "value": "somethingreal123",
+      "flagged": false
+    },
+    {
+      "key_path": "y.tokens",
+      "value": "somethingreal123",
+      "flagged": false
+    },
+    {
+      "key_path": "app.public-key",
+      "value": "ssh-rsa AAAAB3Nz",
+      "flagged": false
+    },
+    {
+      "key_path": "app.public_key_pem",
+      "value": "somethingreal123",
+      "flagged": false
+    },
+    {
+      "key_path": "app.key-name",
+      "value": "primary-key-name",
+      "flagged": false
+    },
+    {
+      "key_path": "app.key_id",
+      "value": "abcdef123456",
+      "flagged": false
+    },
+    {
+      "key_path": "auth.auth-url",
+      "value": "https://auth.example.com",
+      "flagged": false
+    },
+    {
+      "key_path": "auth.auth_domain",
+      "value": "example.auth0.com",
+      "flagged": false
+    },
+    {
+      "key_path": "auth.token-url",
+      "value": "https://auth.example.com/token",
+      "flagged": false
+    },
+    {
+      "key_path": "auth.access-token-url",
+      "value": "https://auth.example.com/token",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "1234567",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "12345678",
+      "flagged": true,
+      "reason": "the key is named \"password\" but the value is not encrypted"
+    },
+    {
+      "key_path": "app.password",
+      "value": "   1234567   ",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "changeme",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "Change Me",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "CHANGE_ME",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "replace-me",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "placeholder",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "<your-password>",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "${DB_PASSWORD}",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "your-password-here",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "my-password-here",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "xxxxxxxx",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "xxxxxxxxxx",
+      "flagged": true,
+      "reason": "the key is named \"password\" but the value is not encrypted"
+    },
+    {
+      "key_path": "app.value",
+      "value": "",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "   ",
+      "flagged": false
+    },
+    {
+      "key_path": "app.value",
+      "value": "sk-live-1234567890abcdefghij",
+      "comment": "plaintext, used in the public demo",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "somethingreal123",
+      "comment": "PlainText",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "somethingreal123",
+      "comment": "not plaintext really",
+      "flagged": false
+    },
+    {
+      "key_path": "app.password",
+      "value": "somethingreal123",
+      "comment": "int",
+      "flagged": true,
+      "reason": "the key is named \"password\" but the value is not encrypted"
+    }
+  ],
+  "files": [
+    {
+      "name": "only string scalars are checked",
+      "note": "an int, a bool, a null and a list are never flagged, whatever the key",
+      "yaml": "pin: 12345678\npassword: 12345678\nquoted-password: \"12345678\"\nenabled-token: true\napi-key:\nlist-token:\n  - somethingreal123\n",
+      "flagged": [
+        "quoted-password"
+      ]
+    },
+    {
+      "name": "secrets are skipped",
+      "yaml": "api-key: SECRET;v1:ikceywABAgMEBQYHCAkKCyLDfmHplmR3TDvBmf48BQQ9Ry9u/Zx9DFyk6Ao=\n",
+      "flagged": []
+    },
+    {
+      "name": "nested paths and the marker comment",
+      "yaml": "db:\n  password: hunter2hunter2\n  host: localhost\ndemo-token: sk-live-not-real-at-all # plaintext, used in the public demo\nother-token: sk-live-not-real-at-all # int\n",
+      "flagged": [
+        "db.password",
+        "other-token"
+      ]
+    },
+    {
+      "name": "the marker on another line does not count",
+      "yaml": "# plaintext\napi-key: somethingreal123\n",
+      "flagged": [
+        "api-key"
+      ]
+    }
+  ]
+}

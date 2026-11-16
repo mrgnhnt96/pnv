@@ -1,0 +1,92 @@
+{
+  "description": "The flavor a file name implies (flavorFromPath). Only the basename matters. An empty string means the name implies no flavor.",
+  "cases": [
+    {
+      "path": "local.yaml",
+      "flavor": "local"
+    },
+    {
+      "path": "local.yml",
+      "flavor": "local"
+    },
+    {
+      "path": "production.env",
+      "flavor": "production"
+    },
+    {
+      "path": "app.local.yaml",
+      "flavor": "local"
+    },
+    {
+      "path": "app.local.yml",
+      "flavor": "local"
+    },
+    {
+      "path": "infra.staging.env",
+      "flavor": "staging"
+    },
+    {
+      "path": "envs/app.local.yaml",
+      "flavor": "local"
+    },
+    {
+      "path": "my.dir/local.yaml",
+      "note": "dots in directory names are ignored",
+      "flavor": "local"
+    },
+    {
+      "path": "/abs/path/app.ci.yaml",
+      "flavor": "ci"
+    },
+    {
+      "path": "a.b.c.yaml",
+      "note": "the second-to-last extension wins",
+      "flavor": "c"
+    },
+    {
+      "path": "local",
+      "note": "no extension at all",
+      "flavor": "local"
+    },
+    {
+      "path": "app.local",
+      "note": "one dot: the part before it, as with local.yaml",
+      "flavor": "app"
+    },
+    {
+      "path": "app.local.json",
+      "note": "only .yaml, .yml and .env are stripped",
+      "flavor": "local.json"
+    },
+    {
+      "path": "app.local.YAML",
+      "note": "extension matching is case-sensitive",
+      "flavor": "local.YAML"
+    },
+    {
+      "path": "app.local.env.yaml",
+      "flavor": "env"
+    },
+    {
+      "path": "app.yaml.env",
+      "flavor": ""
+    },
+    {
+      "path": "app.local.yaml.bak",
+      "flavor": "yaml.bak"
+    },
+    {
+      "path": ".local.yaml",
+      "note": "a leading dot does not start an extension",
+      "flavor": ""
+    },
+    {
+      "path": ".env",
+      "flavor": ""
+    },
+    {
+      "path": "app..yaml",
+      "flavor": ""
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "description": ".pnvrc parsing and the conflict rule, and the set of names that resolve to the same flavor (\"group\", compared as a set; null when the name is unknown).",
+  "parse": [
+    {
+      "name": "flavors with and without aliases",
+      "pnvrc": {
+        "storage": "~/.my_project",
+        "flavors": {
+          "local": [],
+          "production": [
+            "prod",
+            "ci"
+          ]
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "no flavors key",
+      "pnvrc": {
+        "storage": "~/.x"
+      },
+      "valid": true
+    },
+    {
+      "name": "empty flavors",
+      "pnvrc": {
+        "storage": "/abs/keys",
+        "flavors": {}
+      },
+      "valid": true
+    },
+    {
+      "name": "a flavor that lists itself once",
+      "note": "one copy of a flavor's own name in its alias list is ignored",
+      "pnvrc": {
+        "storage": "~/.x",
+        "flavors": {
+          "local": [
+            "local"
+          ]
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "a flavor that lists itself twice",
+      "pnvrc": {
+        "storage": "~/.x",
+        "flavors": {
+          "local": [
+            "local",
+            "local"
+          ]
+        }
+      },
+      "error": "conflict"
+    },
+    {
+      "name": "the same alias twice in one flavor",
+      "pnvrc": {
+        "storage": "~/.x",
+        "flavors": {
+          "production": [
+            "ci",
+            "ci"
+          ]
+        }
+      },
+      "error": "conflict"
+    },
+    {
+      "name": "the same alias in two flavors",
+      "pnvrc": {
+        "storage": "~/.x",
+        "flavors": {
+          "production": [
+            "ci"
+          ],
+          "staging": [
+            "ci"
+          ]
+        }
+      },
+      "error": "conflict"
+    },
+    {
+      "name": "an alias that is another flavor's name",
+      "pnvrc": {
+        "storage": "~/.x",
+        "flavors": {
+          "local": [],
+          "production": [
+            "local"
+          ]
+        }
+      },
+      "error": "conflict"
+    },
+    {
+      "name": "no storage",
+      "pnvrc": {
+        "flavors": {
+          "local": []
+        }
+      },
+      "error": "invalid"
+    },
+    {
+      "name": "storage is not a string",
+      "pnvrc": {
+        "storage": 1
+      },
+      "error": "invalid"
+    },
+    {
+      "name": "an alias list that is not a list",
+      "pnvrc": {
+        "storage": "~/.x",
+        "flavors": {
+          "local": "ci"
+        }
+      },
+      "error": "invalid"
+    }
+  ],
+  "groups": {
+    "pnvrc": {
+      "storage": "~/.my_project",
+      "flavors": {
+        "local": [],
+        "production": [
+          "prod",
+          "ci"
+        ]
+      }
+    },
+    "cases": [
+      {
+        "name": "local",
+        "group": [
+          "local"
+        ]
+      },
+      {
+        "name": "production",
+        "group": [
+          "production",
+          "prod",
+          "ci"
+        ]
+      },
+      {
+        "name": "prod",
+        "group": [
+          "production",
+          "prod",
+          "ci"
+        ]
+      },
+      {
+        "name": "ci",
+        "group": [
+          "production",
+          "prod",
+          "ci"
+        ]
+      },
+      {
+        "name": "staging",
+        "group": null
+      }
+    ]
+  }
+}
