@@ -157,3 +157,46 @@ fn pnvrc_groups() {
         assert_eq!(actual, expected, "{name}");
     }
 }
+
+#[test]
+fn plaintext_detector_values() {
+    let file = load("plaintext_detector.json");
+    for case in cases(&file, "values") {
+        let key_path = str_of(case, "key_path");
+        let value = str_of(case, "value");
+        let found = crate::suspect_plaintext(key_path, value, case["comment"].as_str());
+
+        let flagged = case["flagged"].as_bool().unwrap();
+        assert_eq!(found.is_some(), flagged, "{case}");
+        if flagged {
+            assert_eq!(found.unwrap().reason, str_of(case, "reason"), "{case}");
+        }
+    }
+}
+
+#[test]
+fn plaintext_detector_files() {
+    let file = load("plaintext_detector.json");
+    for case in cases(&file, "files") {
+        let name = name_of(case);
+        let leaves = crate::yaml::leaves(str_of(case, "yaml")).unwrap();
+
+        let flagged: Vec<String> = leaves
+            .iter()
+            .filter(|leaf| leaf.is_string && !crate::is_secret(&leaf.text))
+            .filter(|leaf| {
+                crate::suspect_plaintext(&leaf.path.join("."), &leaf.text, leaf.comment.as_deref())
+                    .is_some()
+            })
+            .map(|leaf| leaf.path.join("."))
+            .collect();
+
+        let expected: Vec<&str> = case["flagged"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert_eq!(flagged, expected, "{name}");
+    }
+}
