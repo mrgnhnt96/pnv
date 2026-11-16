@@ -26,16 +26,20 @@
 #![warn(missing_docs)]
 
 mod b64;
+mod detector;
 mod error;
 mod flavor;
 mod key;
 mod lookup;
 mod pnvrc;
 mod token;
+mod verify;
+mod yaml;
 
 #[cfg(test)]
 mod vectors;
 
+pub use detector::{PLAINTEXT_MARKER, Suspicion, suspect_plaintext};
 pub use error::{Error, ErrorKind, MalformedReason, Result};
 pub use flavor::{KEY_ENV_PREFIX, flavor_from_path, is_valid_flavor_name, key_env_var};
 pub use key::{
@@ -46,3 +50,4 @@ pub use pnvrc::{Flavor, KEY_FILE_EXTENSION, PNVRC_FILE_NAME, Pnvrc};
 pub use token::{
     IV_LENGTH, SECRET_PREFIX, TAG_LENGTH, Token, Version, decrypt, encrypt, is_secret,
 };
+pub use verify::{VerifyReport, verify};
