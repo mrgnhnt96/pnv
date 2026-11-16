@@ -1,0 +1,30 @@
+[package]
+name = "pnv"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Encrypted secrets in YAML files that are safe to commit, readable from build scripts and at run time"
+license = "MIT"
+repository = "https://github.com/mrgnhnt96/pnv/tree/main/rust"
+keywords = ["secrets", "encryption", "yaml", "env", "config"]
+categories = ["command-line-utilities", "cryptography", "config"]
+
+[features]
+default = ["cli"]
+cli = ["dep:clap"]
+
+[dependencies]
+aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "alloc"] }
+base64 = "0.23.1"
+clap = { version = "4.6.7", features = ["derive"], optional = true }
+getrandom = "0.4.3"
+sha2 = "0.11.1"
+
+[dev-dependencies]
+hex = "0.4.3"
+serde_json = "1.0.154"
+
+[[bin]]
+name = "pnv"
+path = "src/main.rs"
+required-features = ["cli"]
