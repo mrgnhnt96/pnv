@@ -93,7 +93,7 @@ class GenerateEnvCommand extends CrypticCommand with DecryptHandler, FileMixin {
   @override
   Future<int> run() async {
     try {
-      return _run();
+      return await _run();
     } catch (e) {
       logger.err('Failed to generate .env file. $e');
       return 1;
