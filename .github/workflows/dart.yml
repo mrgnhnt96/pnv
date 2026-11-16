@@ -1,12 +1,7 @@
 name: dart
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "dart/**"
-      - "spec/**"
-      - ".github/workflows/dart.yml"
+  workflow_dispatch:
 
 jobs:
   check:
