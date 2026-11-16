@@ -1,0 +1,11 @@
+[package]
+name = "pnv-build-script-example"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Kept out of the pnv crate's own build: this is a crate of its own.
+[workspace]
+
+[build-dependencies]
+pnv = { path = "../..", default-features = false }
