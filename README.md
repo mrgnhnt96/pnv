@@ -7,7 +7,7 @@ Safely store environment variables in a public repository: encrypted YAML secret
 | Folder | [`dart/`](dart/) | [`rust/`](rust/) |
 | Get it | `dart pub global activate pnv` ([pub.dev](https://pub.dev/packages/pnv)) | `cargo add pnv` or `cargo install pnv` ([crates.io](https://crates.io/crates/pnv)) |
 | Use it as | a command-line tool, at dev time | a library for build scripts and run time, and a command |
-| Commands | init, create/delete flavor, encrypt, decrypt, set, get, show, generate env, generate dart, to-dart-define, import, rotate, verify | init, create key, create/delete flavor, encrypt, decrypt, generate env, verify |
+| Commands | init, create/delete flavor, encrypt, decrypt, set, get, show, generate env, generate dart, to-dart-define, import, rotate, verify | init, create key, create/delete flavor, encrypt, decrypt, set, get, show, generate env, verify |
 | Output | `.env` files, a Dart class, `--dart-define` arguments | `cargo:rustc-env` values in a build script, or an `Env` at run time |
 | Read more | [`dart/README.md`](dart/README.md), [`dart/llms.txt`](dart/llms.txt) | [`rust/README.md`](rust/README.md), [`rust/llms.txt`](rust/llms.txt) |
 

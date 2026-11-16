@@ -29,13 +29,13 @@ server:
 
 Nested keys flatten into one name each: `database.url` becomes `DATABASE_URL`. Lists are refused. See the [format spec](../spec/format.md) for the exact rules.
 
-Make a key with the command, and keep it out of the repository.
+Make a key with the command, and keep it out of the repository. Then put secrets in the file with `pnv set`, which edits it in place and keeps its comments, order and layout:
 
 ```sh
 pnv create key > ~/.my_project/production.key
+pnv set database.url "postgres://..." --file app.production.yaml
+pnv show app.production.yaml           # the whole file, decrypted
 ```
-
-Creating and editing secrets in the YAML file is done by the Dart tool today (see [What is left out](#what-is-left-out-and-why)).
 
 ## Find the key
 
@@ -110,6 +110,8 @@ println!("connecting to {url}");
 
 Values are typed by the YAML core schema: `Value::String`, `Int`, `Float`, `Bool` or `Null`. A decrypted secret is always a string. `Value` implements `Display`, which gives the plain text a build script passes on.
 
+To read or change one value without touching the rest of the file, use `pnv::Document`: `get("database.url")`, `set("database.url", token)` (which keeps comments, order and layout), and `decrypted(&key)` for the whole file with its secrets decrypted.
+
 The other pieces are public too: `encrypt` and `decrypt`, `Key`, `create_key`, `Pnvrc`, `flavor_from_path` and `verify`. Read them on [docs.rs](https://docs.rs/pnv).
 
 ## The `pnv` command
@@ -123,6 +125,9 @@ pnv create flavor -n, --name <name> [--force]
 pnv delete flavor -n, --name <name>... --force
 pnv encrypt [KEY] <value>...                    # aliases: enc, e, encode
 pnv decrypt [KEY] <value>...                    # aliases: dec, d, decode
+pnv set <key.path> (<value>... | --stdin) -i, --file <x.yaml> [--plain] [KEY]
+pnv get <key.path> -i, --file <x.yaml> [KEY]
+pnv show <x.yaml> [KEY]                         # or --file <x.yaml>
 pnv generate env (-i, --file <x.yaml> | -d, --directory <dir>) [-o, --output <outputs>] [KEY]
 pnv verify [-d, --directory <envs>]
 ```
@@ -132,6 +137,9 @@ pnv verify [-d, --directory <envs>]
 - **`init`** writes a `.pnvrc` in the current directory, or uses the nearest one above it. Storage defaults to `~/.<project directory name>`. It adds key files already in storage as flavors, makes a key for each flavor that has none, then makes each `--flavor`. `--flavor` takes several names, repeated or comma-separated. Running it again never replaces a key. `--gitignore` adds `*.key` and `*.key.previous` to `.gitignore` once.
 - **`create flavor`** refuses a flavor that already exists, or whose key file is already in storage, unless you pass `--force`. Anything encrypted with the old key will no longer decrypt.
 - **`delete flavor`** deletes each flavor's key file and its `.pnvrc` entry. It refuses without `--force`, and deletes nothing if any name is unknown.
+- **`set`** encrypts the value and writes it at the dotted key path, in place: comments, key order, blank lines and the rest of the file stay byte for byte as they were. Missing groups are created. A path through a value that is not a group (`app.name.oops` when `app.name` is a value, even an empty one) is refused, and on any error nothing is written. `--stdin` reads one line instead of an argument; `--plain` writes the value unencrypted and needs no key. Without a key option, the key comes from the file name's flavor.
+- **`get`** prints one value, decrypted when it is a secret. A plain value prints as it is; a group is an error.
+- **`show`** prints the whole file with its secrets decrypted, and nothing else. A file with no secrets, even one that is not valid YAML, prints exactly as it is. It takes the file bare, so it works as a git textconv driver: `git config diff.pnv.textconv "pnv show"` and `*.yaml diff=pnv` in `.gitattributes`.
 - **`generate env`** writes `<output>/<file name>.env` for each `.yaml` or `.yml` file, the same text the Dart tool writes. With a key option, that one key decrypts every file; otherwise each file's flavor comes from its name. `--flavor` with `--directory` keeps only that flavor's files, aliases included. Every file is decrypted before any is written, so one bad file leaves nothing half done.
 
 `pnv verify` checks that the YAML files are safe to publish, and needs a `.pnvrc` in the current directory or above it. It walks every `.yaml` and `.yml` file under the directory (default: the `.pnvrc` directory), skipping `.git`, `target`, `build`, `node_modules` and `.dart_tool`, and reports:
@@ -144,7 +152,6 @@ It exits `0` when nothing is wrong and `1` otherwise. A file only needs a key if
 
 ## What is left out, and why
 
-- **`set`, `get` and `show`.** They are not in the command yet. Use the Dart tool for these: the files are the same, so each tool reads what the other wrote.
 - **Prompts.** The Dart tool asks for what you leave out; this command fails and says which flag to pass. `delete flavor` needs `--force`.
 - **`generate dart` and `to-dart-define`.** They produce Dart code and Dart arguments, so they belong to the Dart tool.
 - **Lists in YAML.** A list has no flat name, so it is refused, as in the Dart tool.

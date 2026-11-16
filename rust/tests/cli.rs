@@ -712,3 +712,373 @@ mod verify {
             .stdout(contains("1 file(s), 1 secret(s)"));
     }
 }
+
+/// Ported from the Dart tool's `test/e2e/set_get_command_test.dart`.
+mod set {
+    use super::*;
+
+    const FILE: &str = "envs/app.local.yaml";
+
+    fn with(text: &str) -> Sandbox {
+        let s = Sandbox::initialized();
+        s.write(FILE, text);
+        s
+    }
+
+    #[test]
+    fn encrypts_in_place_and_leaves_everything_else_byte_for_byte() {
+        let s = with(
+            "# a leading comment\nbase-url: http://localhost:3000   # trailing comment\napp:\n  name: demo\n  api-key: replace-me # the key\n",
+        );
+        s.pnv(&["set", "app.api-key", "sk-live-abc", "--file", FILE])
+            .assert()
+            .success()
+            .stdout(contains(
+                "Encrypted envs/app.local.yaml \u{2192} app.api-key",
+            ));
+
+        let result = s.read(FILE);
+        let (before, token) = result.split_once("api-key: ").unwrap();
+        assert_eq!(
+            before,
+            "# a leading comment\nbase-url: http://localhost:3000   # trailing comment\napp:\n  name: demo\n  "
+        );
+        assert!(token.starts_with("SECRET;v1:"));
+        assert!(token.ends_with(" # the key\n"));
+        assert!(!result.contains("replace-me"));
+    }
+
+    #[test]
+    fn creates_missing_groups_in_block_style() {
+        let s = with("app:\n  name: demo\n");
+        s.pnv(&["set", "app.db.password", "hunter2", "--file", FILE])
+            .assert()
+            .success();
+        assert!(s.read(FILE).contains("  db:\n    password: SECRET;v1:"));
+    }
+
+    #[test]
+    fn seeds_an_empty_document() {
+        let s = with("");
+        s.pnv(&["set", "a.b.c", "v", "--file", FILE])
+            .assert()
+            .success();
+        let result = s.read(FILE);
+        assert!(result.starts_with("a:\n  b:\n    c: SECRET;v1:"));
+        assert!(result.ends_with('\n'));
+    }
+
+    #[test]
+    fn plain_writes_the_value_as_given() {
+        let s = with("app:\n  name: demo\n");
+        s.pnv(&["set", "app.region", "us-east-1", "-i", FILE, "--plain"])
+            .assert()
+            .success()
+            .stdout(contains("Set envs/app.local.yaml"));
+        assert_eq!(s.read(FILE), "app:\n  name: demo\n  region: us-east-1\n");
+    }
+
+    #[test]
+    fn plain_needs_no_key() {
+        let s = Sandbox::new();
+        s.write("app.yaml", "a: 1\n");
+        s.pnv(&["set", "b", "two", "--input", "app.yaml", "--plain"])
+            .assert()
+            .success();
+        assert_eq!(s.read("app.yaml"), "a: 1\nb: two\n");
+    }
+
+    #[test]
+    fn joins_the_words_of_the_value() {
+        let s = with("a: b\n");
+        s.pnv(&["set", "a", "two", "words", "--file", FILE, "--plain"])
+            .assert()
+            .success();
+        assert_eq!(s.read(FILE), "a: two words\n");
+    }
+
+    #[test]
+    fn reads_one_line_from_stdin() {
+        let s = with("a: b\n");
+        s.pnv(&["set", "a", "--file", FILE, "--stdin"])
+            .write_stdin("from stdin\nignored\n")
+            .assert()
+            .success();
+        s.pnv(&["get", "a", "--file", FILE])
+            .assert()
+            .success()
+            .stdout("from stdin\n");
+    }
+
+    #[test]
+    fn refuses_a_path_that_runs_through_a_scalar() {
+        for text in ["app:\n  name: demo\n", "app:\n  name:\n"] {
+            let s = with(text);
+            s.pnv(&["set", "app.name.oops", "v", "--file", FILE])
+                .assert()
+                .code(1)
+                .stderr(contains(
+                    "\"app.name\" is a value, not a group, so \"app.name.oops\" cannot be set under it.",
+                ));
+            assert_eq!(s.read(FILE), text, "must not be touched");
+        }
+    }
+
+    #[test]
+    fn refuses_a_bad_path_before_looking_for_a_key() {
+        let s = Sandbox::new();
+        s.write("app.yaml", "a: b\n");
+        s.pnv(&["set", "a.b", "v", "--file", "app.yaml"])
+            .assert()
+            .code(1)
+            .stderr(contains("is a value, not a group"));
+    }
+
+    #[test]
+    fn requires_a_value() {
+        with("a: b\n")
+            .pnv(&["set", "a", "--file", FILE])
+            .assert()
+            .code(1)
+            .stderr(contains("Missing the value"));
+    }
+
+    #[test]
+    fn requires_a_path_and_a_file() {
+        let s = with("a: b\n");
+        s.pnv(&["set", "--file", FILE])
+            .assert()
+            .code(1)
+            .stderr(contains("Missing the key path"));
+        s.pnv(&["set", "a", "v"])
+            .assert()
+            .code(1)
+            .stderr(contains("--file is required."));
+    }
+
+    #[test]
+    fn rejects_an_empty_path_segment() {
+        with("a: b\n")
+            .pnv(&["set", "app..key", "v", "--file", FILE])
+            .assert()
+            .code(1)
+            .stderr(contains("Invalid key path"));
+    }
+
+    #[test]
+    fn refuses_a_missing_or_non_yaml_file() {
+        let s = Sandbox::initialized();
+        s.pnv(&["set", "a", "v", "--file", "nope.yaml"])
+            .assert()
+            .code(1)
+            .stderr(contains("Input file \"nope.yaml\" does not exist."));
+        s.write("app.local.json", "{}");
+        s.pnv(&["set", "a", "v", "--file", "app.local.json"])
+            .assert()
+            .code(1)
+            .stderr(contains("must be a .yaml file"));
+    }
+
+    #[test]
+    fn writes_nothing_when_the_file_has_no_key() {
+        let s = Sandbox::initialized();
+        s.write("app.staging.yaml", "a: b\n");
+        s.pnv(&["set", "a", "v", "--file", "app.staging.yaml"])
+            .assert()
+            .code(1)
+            .stderr(contains("implies flavor \"staging\""));
+        assert_eq!(s.read("app.staging.yaml"), "a: b\n");
+    }
+}
+
+/// Ported from the Dart tool's `test/e2e/set_get_command_test.dart`.
+mod get {
+    use super::*;
+
+    const FILE: &str = "envs/app.local.yaml";
+
+    fn with(text: &str) -> Sandbox {
+        let s = Sandbox::initialized();
+        s.write(FILE, text);
+        s
+    }
+
+    #[test]
+    fn round_trips_a_value_set_by_set() {
+        let s = with("app:\n  name: demo\n");
+        s.pnv(&["set", "app.api-key", "sk-live-abc", "--file", FILE])
+            .assert()
+            .success();
+        s.pnv(&["get", "app.api-key", "--file", FILE])
+            .assert()
+            .success()
+            .stdout("sk-live-abc\n");
+    }
+
+    #[test]
+    fn reads_a_plain_value_back_unchanged() {
+        let s = with("base-url: http://localhost:3000\nport: 0x1F\nnothing: ~\n");
+        s.pnv(&["get", "base-url", "--file", FILE])
+            .assert()
+            .success()
+            .stdout("http://localhost:3000\n");
+        // Typed as the Dart tool types them.
+        s.pnv(&["get", "port", "--file", FILE])
+            .assert()
+            .stdout("31\n");
+        s.pnv(&["get", "nothing", "--file", FILE])
+            .assert()
+            .stdout("null\n");
+    }
+
+    #[test]
+    fn plain_values_need_no_key() {
+        let s = Sandbox::new();
+        s.write("app.yaml", "a: 1\n");
+        s.pnv(&["get", "a", "-i", "app.yaml"])
+            .assert()
+            .success()
+            .stdout("1\n");
+    }
+
+    #[test]
+    fn fails_on_a_key_that_is_not_there() {
+        with("app:\n  name: demo\n")
+            .pnv(&["get", "app.nope", "--file", FILE])
+            .assert()
+            .code(1)
+            .stderr(contains(
+                "No such key \"app.nope\" in \"envs/app.local.yaml\".",
+            ));
+    }
+
+    #[test]
+    fn fails_when_the_path_names_a_group() {
+        with("app:\n  name: demo\n")
+            .pnv(&["get", "app", "--file", FILE])
+            .assert()
+            .code(1)
+            .stderr(contains("is a group, not a value"));
+    }
+
+    #[test]
+    fn names_the_wrong_key_when_a_secret_came_from_another_flavor() {
+        let s = with("app:\n  name: demo\n");
+        s.pnv(&[
+            "set",
+            "app.api-key",
+            "from-prod",
+            "--file",
+            FILE,
+            "--flavor",
+            "production",
+        ])
+        .assert()
+        .success();
+
+        s.pnv(&["get", "app.api-key", "--file", FILE])
+            .assert()
+            .code(1)
+            .stderr(contains("encrypted with a different key"))
+            .stderr(contains("envs/app.local.yaml \u{2192} app.api-key"));
+
+        s.pnv(&[
+            "get",
+            "app.api-key",
+            "--file",
+            FILE,
+            "--flavor",
+            "production",
+        ])
+        .assert()
+        .success()
+        .stdout("from-prod\n");
+    }
+}
+
+/// Ported from the show cases of the Dart tool's
+/// `test/e2e/import_show_command_test.dart`.
+mod show {
+    use super::*;
+
+    const FILE: &str = "envs/app.local.yaml";
+
+    #[test]
+    fn prints_the_file_with_secrets_decrypted() {
+        let s = Sandbox::initialized();
+        let secret = s.encrypt("local", "the-secret");
+        s.write(FILE, &format!("app_key: {secret}\n"));
+
+        s.pnv(&["show", FILE])
+            .assert()
+            .success()
+            .stdout("app_key: the-secret\n");
+        s.pnv(&["show", "--file", FILE])
+            .assert()
+            .success()
+            .stdout("app_key: the-secret\n");
+    }
+
+    #[test]
+    fn passes_through_a_file_with_no_secrets() {
+        let s = Sandbox::new();
+        for text in [
+            "a: 1\nb: two\n",
+            "a:   spaced   # c\n\n\n\nb: 2",
+            "- a\n- b\n",
+            "not: [valid\n",
+            "",
+        ] {
+            s.write("plain.yaml", text);
+            s.pnv(&["show", "plain.yaml"])
+                .assert()
+                .success()
+                .stdout(text.to_owned());
+        }
+    }
+
+    #[test]
+    fn leaves_comments_and_structure_alone() {
+        let s = Sandbox::initialized();
+        s.write(
+            FILE,
+            "# a comment\napp:\n  key: replace # note\n\n  other: x\n",
+        );
+        s.pnv(&["set", "app.key", "v", "--file", FILE])
+            .assert()
+            .success();
+
+        s.pnv(&["show", FILE])
+            .assert()
+            .success()
+            .stdout("# a comment\napp:\n  key: v # note\n\n  other: x\n");
+    }
+
+    #[test]
+    fn fails_on_a_missing_file() {
+        let s = Sandbox::new();
+        s.pnv(&["show", "nope.yaml"])
+            .assert()
+            .code(1)
+            .stderr(contains("does not exist"));
+        s.pnv(&["show"])
+            .assert()
+            .code(1)
+            .stderr(contains("Name the .yaml file to show."));
+    }
+
+    #[test]
+    fn works_as_a_git_textconv_driver() {
+        // git runs `<driver> <file>` with nothing else to go on, so the key
+        // comes from the flavor the file name implies, and nothing but the
+        // file reaches stdout or stderr.
+        let s = Sandbox::initialized();
+        let secret = s.encrypt("local", "the-secret");
+        s.write(FILE, &format!("db:\n  password: {secret} # rotated\n"));
+        s.pnv(&["show", FILE])
+            .assert()
+            .success()
+            .stdout("db:\n  password: the-secret # rotated\n")
+            .stderr(predicate::str::is_empty());
+    }
+}

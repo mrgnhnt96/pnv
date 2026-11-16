@@ -38,6 +38,7 @@
 mod b64;
 pub mod build;
 mod detector;
+mod document;
 mod env;
 mod error;
 mod flavor;
@@ -54,6 +55,7 @@ mod yaml;
 mod vectors;
 
 pub use detector::{PLAINTEXT_MARKER, Suspicion, suspect_plaintext};
+pub use document::Document;
 pub use env::{Entry, Env};
 pub use error::{Error, ErrorKind, MalformedReason, Result};
 pub use flavor::{KEY_ENV_PREFIX, flavor_from_path, is_valid_flavor_name, key_env_var};

@@ -22,6 +22,7 @@ regex = "1.13.1"
 saphyr-parser = "0.3.4"
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 sha2 = "0.11.1"
+yaml-edit = "0.3.6"
 
 [dev-dependencies]
 assert_cmd = "2.2.2"

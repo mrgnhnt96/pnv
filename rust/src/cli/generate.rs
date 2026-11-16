@@ -170,7 +170,7 @@ fn files_in(dir: &Path, selected: Option<&Selected>, log: &Log) -> Result<Vec<Pa
     Ok(kept)
 }
 
-fn is_yaml(path: &Path) -> bool {
+pub(super) fn is_yaml(path: &Path) -> bool {
     path.extension()
         .is_some_and(|ext| ext == "yaml" || ext == "yml")
 }
