@@ -114,12 +114,25 @@ The other pieces are public too: `encrypt` and `decrypt`, `Key`, `create_key`, `
 
 ## The `pnv` command
 
-The command has two subcommands:
+Every subcommand takes its input as flags and never prompts, so it runs the same on a laptop and on a build server. It exits `0` on success and `1` on any error, including a bad flag.
 
 ```sh
-pnv create key               # print a new key
+pnv init [-s, --storage <~/.my_project>] [-f, --flavor <name>]... [--gitignore]
+pnv create key                                  # print a new key
+pnv create flavor -n, --name <name> [--force]
+pnv delete flavor -n, --name <name>... --force
+pnv encrypt [KEY] <value>...                    # aliases: enc, e, encode
+pnv decrypt [KEY] <value>...                    # aliases: dec, d, decode
+pnv generate env (-i, --file <x.yaml> | -d, --directory <dir>) [-o, --output <outputs>] [KEY]
 pnv verify [-d, --directory <envs>]
 ```
+
+`KEY` is one of `-k, --key <key>`, `-f, --key-file <path>` or `--flavor <name>`. A flavor's key is found as above, so `PNV_KEY_<FLAVOR>` works without a `.pnvrc`. `--quiet` prints only errors and what was asked for (a key, an encrypted value); `--loud` prints every step and wins over `--quiet`.
+
+- **`init`** writes a `.pnvrc` in the current directory, or uses the nearest one above it. Storage defaults to `~/.<project directory name>`. It adds key files already in storage as flavors, makes a key for each flavor that has none, then makes each `--flavor`. `--flavor` takes several names, repeated or comma-separated. Running it again never replaces a key. `--gitignore` adds `*.key` and `*.key.previous` to `.gitignore` once.
+- **`create flavor`** refuses a flavor that already exists, or whose key file is already in storage, unless you pass `--force`. Anything encrypted with the old key will no longer decrypt.
+- **`delete flavor`** deletes each flavor's key file and its `.pnvrc` entry. It refuses without `--force`, and deletes nothing if any name is unknown.
+- **`generate env`** writes `<output>/<file name>.env` for each `.yaml` or `.yml` file, the same text the Dart tool writes. With a key option, that one key decrypts every file; otherwise each file's flavor comes from its name. `--flavor` with `--directory` keeps only that flavor's files, aliases included. Every file is decrypted before any is written, so one bad file leaves nothing half done.
 
 `pnv verify` checks that the YAML files are safe to publish, and needs a `.pnvrc` in the current directory or above it. It walks every `.yaml` and `.yml` file under the directory (default: the `.pnvrc` directory), skipping `.git`, `target`, `build`, `node_modules` and `.dart_tool`, and reports:
 
@@ -131,7 +144,8 @@ It exits `0` when nothing is wrong and `1` otherwise. A file only needs a key if
 
 ## What is left out, and why
 
-- **Most commands.** The command has `create key` and `verify`. `init`, `create flavor`, `delete flavor`, `encrypt`, `decrypt`, `set`, `get`, `show` and `generate env` are not in it yet. Use the Dart tool for these: the files are the same, so each tool reads what the other wrote.
+- **`set`, `get` and `show`.** They are not in the command yet. Use the Dart tool for these: the files are the same, so each tool reads what the other wrote.
+- **Prompts.** The Dart tool asks for what you leave out; this command fails and says which flag to pass. `delete flavor` needs `--force`.
 - **`generate dart` and `to-dart-define`.** They produce Dart code and Dart arguments, so they belong to the Dart tool.
 - **Lists in YAML.** A list has no flat name, so it is refused, as in the Dart tool.
 - **Values with line breaks in a build script.** Cargo cannot pass them on, as above.
