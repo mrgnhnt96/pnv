@@ -1,6 +1,6 @@
 # pnv for Rust
 
-Read encrypted secrets from YAML files that are safe to commit, in a build script or when your program runs. This crate reads and writes the same keys, `SECRET;` tokens and `.pnvrc` as the [Dart `pnv` tool](../dart/README.md), following the shared [format spec](../spec/format.md).
+Read encrypted secrets from YAML files that are safe to commit, in a build script or when your program runs. Secrets are stored as `SECRET;` tokens, keys live outside the project, and a `.pnvrc` maps flavors to keys, as described in the [format spec](../spec/format.md).
 
 ## Install
 
@@ -45,7 +45,7 @@ Both ways of reading a file find its key the same way. The first match wins:
 2. `<storage>/<flavor>.key`, from the nearest `.pnvrc` in the current directory or above it.
 3. For a flavor that lists the name as an alias, steps 1 and 2 again for that flavor.
 
-The flavor comes from the file name: `app.production.yaml` is `production`, and `local.yaml` is `local`. The `.pnvrc` is the one the Dart tool writes (`{"storage":"keys","flavors":{"production":["ci"]}}`), and is only read when a flavor needs it. On a build server, set `PNV_KEY_PRODUCTION` and ship no key file.
+The flavor comes from the file name: `app.production.yaml` is `production`, and `local.yaml` is `local`. The `.pnvrc` is a small JSON file (`{"storage":"keys","flavors":{"production":["ci"]}}`) that `pnv init` writes, and is only read when a flavor needs it. On a build server, set `PNV_KEY_PRODUCTION` and ship no key file.
 
 To choose the key yourself, use `pnv::KeyLookup` (`.key`, `.key_file`, `.flavor`, `.file`, then `.resolve()`).
 
@@ -106,7 +106,7 @@ let url = env.get("DATABASE_URL").expect("DATABASE_URL is set");
 println!("connecting to {url}");
 ```
 
-`Env::load` finds the key as above. `Env::read(path, &key)` and `Env::parse(yaml, &key)` take a key you already have, and `env.to_dotenv()` gives the text the Dart tool's `pnv generate env` writes. Nothing is put in the process environment: that is unsafe in Rust once threads run, so what to do with the values is up to you.
+`Env::load` finds the key as above. `Env::read(path, &key)` and `Env::parse(yaml, &key)` take a key you already have, and `env.to_dotenv()` gives the same text `pnv generate env` writes. Nothing is put in the process environment: that is unsafe in Rust once threads run, so what to do with the values is up to you.
 
 Values are typed by the YAML core schema: `Value::String`, `Int`, `Float`, `Bool` or `Null`. A decrypted secret is always a string. `Value` implements `Display`, which gives the plain text a build script passes on.
 
@@ -140,9 +140,9 @@ pnv verify [-d, --directory <envs>]
 - **`set`** encrypts the value and writes it at the dotted key path, in place: comments, key order, blank lines and the rest of the file stay byte for byte as they were. Missing groups are created. A path through a value that is not a group (`app.name.oops` when `app.name` is a value, even an empty one) is refused, and on any error nothing is written. `--stdin` reads one line instead of an argument; `--plain` writes the value unencrypted and needs no key. Without a key option, the key comes from the file name's flavor.
 - **`get`** prints one value, decrypted when it is a secret. A plain value prints as it is; a group is an error.
 - **`show`** prints the whole file with its secrets decrypted, and nothing else. A file with no secrets, even one that is not valid YAML, prints exactly as it is. It takes the file bare, so it works as a git textconv driver: `git config diff.pnv.textconv "pnv show"` and `*.yaml diff=pnv` in `.gitattributes`.
-- **`generate env`** writes `<output>/<file name>.env` for each `.yaml` or `.yml` file, the same text the Dart tool writes. With a key option, that one key decrypts every file; otherwise each file's flavor comes from its name. `--flavor` with `--directory` keeps only that flavor's files, aliases included. Every file is decrypted before any is written, so one bad file leaves nothing half done.
+- **`generate env`** writes `<output>/<file name>.env` for each `.yaml` or `.yml` file. With a key option, that one key decrypts every file; otherwise each file's flavor comes from its name. `--flavor` with `--directory` keeps only that flavor's files, aliases included. Every file is decrypted before any is written, so one bad file leaves nothing half done.
 
-`pnv verify` checks that the YAML files are safe to publish, and needs a `.pnvrc` in the current directory or above it. It walks every `.yaml` and `.yml` file under the directory (default: the `.pnvrc` directory), skipping `.git`, `target`, `build`, `node_modules` and `.dart_tool`, and reports:
+`pnv verify` checks that the YAML files are safe to publish, and needs a `.pnvrc` in the current directory or above it. It walks every `.yaml` and `.yml` file under the directory (default: the `.pnvrc` directory), skipping `.git`, `target`, `build`, `node_modules` and other build directories, and reports:
 
 - a secret that does not decrypt with its flavor's key;
 - a value that looks like a secret but is not encrypted;
@@ -152,8 +152,7 @@ It exits `0` when nothing is wrong and `1` otherwise. A file only needs a key if
 
 ## What is left out, and why
 
-- **Prompts.** The Dart tool asks for what you leave out; this command fails and says which flag to pass. `delete flavor` needs `--force`.
-- **`generate dart` and `to-dart-define`.** They produce Dart code and Dart arguments, so they belong to the Dart tool.
-- **Lists in YAML.** A list has no flat name, so it is refused, as in the Dart tool.
+- **Prompts.** The command never asks for what you leave out; it fails and says which flag to pass. `delete flavor` needs `--force`.
+- **Lists in YAML.** A list has no flat name, so it is refused.
 - **Values with line breaks in a build script.** Cargo cannot pass them on, as above.
 - **Writing to the process environment.** It is unsafe in Rust once threads run.
