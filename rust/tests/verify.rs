@@ -114,3 +114,69 @@ fn storage_inside_the_project_is_flagged() {
         report.problems
     );
 }
+
+#[test]
+fn every_document_of_a_multi_document_file_is_checked() {
+    let _guard = LOCK.lock().unwrap();
+    let p = project();
+    let token = encrypt("hunter2hunter2", &p.local).unwrap();
+    write(
+        p.dir.path(),
+        "profiles.local.yaml",
+        &format!("name: first\nkey: {token}\n---\nname: second\ndb:\n  password: hunter2hunter2\n"),
+    );
+
+    let report = run(&p);
+    assert_eq!(report.secrets, 1);
+    assert_eq!(report.problems.len(), 1, "{:#?}", report.problems);
+    assert!(report.problems[0].contains("db.password"));
+}
+
+#[test]
+fn a_clean_multi_document_file_passes() {
+    let _guard = LOCK.lock().unwrap();
+    let p = project();
+    write(
+        p.dir.path(),
+        "profiles.yaml",
+        "name: captcha\ndecisions:\n  - type: captcha\n---\nname: default\non_success: break\n",
+    );
+
+    let report = run(&p);
+    assert!(report.is_clean(), "{:?}", report.problems);
+}
+
+fn git(dir: &Path, args: &[&str]) {
+    let status = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .status()
+        .unwrap();
+    assert!(status.success(), "git {args:?}");
+}
+
+#[test]
+fn in_a_git_repo_only_files_git_would_publish_are_checked() {
+    let _guard = LOCK.lock().unwrap();
+    let p = project();
+    let root = p.dir.path();
+    git(root, &["init", "--quiet"]);
+    write(root, ".gitignore", "ignored/\n");
+    write(root, "envs/app.yaml", "name: demo\n");
+    write(
+        root,
+        "ignored/copy/envs/app.yaml",
+        "password: hunter2hunter2\n",
+    );
+
+    let report = run(&p);
+    assert!(report.is_clean(), "{:?}", report.problems);
+    assert_eq!(report.files, 1, "the gitignored copy is skipped");
+
+    // Untracked but not ignored: git would track it, so it is checked.
+    write(root, "envs/new.yaml", "password: hunter2hunter2\n");
+    let report = run(&p);
+    assert_eq!(report.files, 2);
+    assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+    assert!(report.problems[0].contains("new.yaml"));
+}

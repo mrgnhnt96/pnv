@@ -33,35 +33,34 @@ enum Node {
     Seq,
 }
 
-/// The leaves of the file's top-level mapping, in file order.
+/// The leaves of every document's top-level mapping, in file order.
 ///
-/// Sequences are skipped whole. A file that is empty or whose top level is
-/// not a mapping has no leaves.
+/// A file may hold several documents separated by `---`; each is read.
+/// Sequences are skipped whole. A document that is empty or whose top level
+/// is not a mapping has no leaves.
 pub(crate) fn leaves(source: &str) -> Result<Vec<Leaf>, String> {
     let mut parser = Parser::new_from_str(source);
     let mut anchors = HashMap::new();
-    let mut root = None;
+    let mut roots = Vec::new();
 
     while let Some(next) = parser.next_event() {
         let (event, span) = next.map_err(|err| err.to_string())?;
         match event {
             Event::StreamEnd => break,
-            Event::DocumentStart(_) | Event::StreamStart => {}
-            Event::DocumentEnd => break,
-            first => {
-                root = Some(build(first, span, &mut parser, &mut anchors)?);
-                break;
-            }
+            // Anchors do not reach across documents.
+            Event::DocumentStart(_) => anchors.clear(),
+            Event::StreamStart | Event::DocumentEnd => {}
+            first => roots.push(build(first, span, &mut parser, &mut anchors)?),
         }
     }
 
-    let Some(Node::Map(entries)) = root else {
-        return Ok(Vec::new());
-    };
-
     let chars: Vec<char> = source.chars().collect();
     let mut out = Vec::new();
-    collect(&entries, &mut Vec::new(), &chars, &mut out);
+    for root in &roots {
+        if let Node::Map(entries) = root {
+            collect(entries, &mut Vec::new(), &chars, &mut out);
+        }
+    }
     Ok(out)
 }
 

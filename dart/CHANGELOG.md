@@ -1,5 +1,14 @@
 # Change Log
 
+## Unreleased
+
+### Fixes
+
+- `pnv verify` reads multi-document YAML. A file with several `---` documents, such as a CrowdSec profiles file, used to fail the whole run with `Only expected one document`, so nothing was checked. Every document is now checked
+- `pnv verify` in a git repo checks only the files git tracks or would track. Gitignored copies of the project, such as worktrees under `.claude/worktrees/`, are no longer checked. Outside a git repo it walks the directory as before
+- `pnv verify` reports a file that is not valid YAML as a problem and carries on with the other files, instead of stopping
+- The Rust `pnv verify` gets the same fixes: it used to check only the first document of a file
+
 ## 2.0.0 | 08.13.26
 
 A major version because several changes are breaking for automation: commands that used to exit `0` on input they mishandled now exit non-zero, the generated `.env` format changed, and `generate dart` refuses input it previously accepted. Existing secrets keep decrypting.
