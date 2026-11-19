@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## 2.0.1 | 11.19.26
 
 ### Fixes
 
