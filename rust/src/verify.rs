@@ -36,8 +36,11 @@ impl VerifyReport {
 
 /// Checks that the YAML files under `root` are safe to commit.
 ///
-/// Every `.yaml` and `.yml` file is walked, skipping `.git`, `target`,
-/// `build`, `node_modules` and `.dart_tool`, and these are reported:
+/// Every `.yaml` and `.yml` file is checked. In a git work tree that means
+/// the files git tracks or would track (gitignored files are skipped);
+/// elsewhere every file under `root`, skipping `.git`, `target`, `build`,
+/// `node_modules` and `.dart_tool`. Every document of a multi-document file
+/// is checked. These are reported:
 ///
 /// - a secret that does not decrypt under the key of its file's flavor
 ///   (a corrupt value is reported as corrupt, and a value from another
@@ -70,8 +73,14 @@ pub(crate) fn verify_with(
     pnvrc: &Pnvrc,
     env: &dyn Fn(&str) -> Option<String>,
 ) -> Result<VerifyReport> {
-    let mut files = Vec::new();
-    walk(root, &mut files)?;
+    let mut files = match git_files(root) {
+        Some(files) => files,
+        None => {
+            let mut files = Vec::new();
+            walk(root, &mut files)?;
+            files
+        }
+    };
     files.sort();
 
     let mut report = VerifyReport {
@@ -85,6 +94,47 @@ pub(crate) fn verify_with(
 
     check_storage(project_root, pnvrc, &mut report);
     Ok(report)
+}
+
+/// The `.yaml` and `.yml` files under `dir` that git tracks or would track,
+/// or `None` when `dir` is not in a git work tree or git is not installed.
+///
+/// Asking git keeps gitignored copies of the project, such as worktrees
+/// under `.claude/worktrees/`, out of the check. They are not what gets
+/// published.
+fn git_files(dir: &Path) -> Option<Vec<PathBuf>> {
+    let output = std::process::Command::new("git")
+        .args([
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            "*.yaml",
+            "*.yml",
+        ])
+        .current_dir(dir)
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let files = String::from_utf8_lossy(&output.stdout)
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .map(|path| dir.join(path))
+        // A file deleted from disk but not yet from the index is not there
+        // to publish.
+        .filter(|path| path.is_file())
+        .filter(|path| {
+            path.file_name()
+                .is_none_or(|name| !SKIP_FILES.contains(&name.to_string_lossy().as_ref()))
+        })
+        .collect();
+    Some(files)
 }
 
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {

@@ -142,7 +142,7 @@ pnv verify [-d, --directory <envs>]
 - **`show`** prints the whole file with its secrets decrypted, and nothing else. A file with no secrets, even one that is not valid YAML, prints exactly as it is. It takes the file bare, so it works as a git textconv driver: `git config diff.pnv.textconv "pnv show"` and `*.yaml diff=pnv` in `.gitattributes`.
 - **`generate env`** writes `<output>/<file name>.env` for each `.yaml` or `.yml` file. With a key option, that one key decrypts every file; otherwise each file's flavor comes from its name. `--flavor` with `--directory` keeps only that flavor's files, aliases included. Every file is decrypted before any is written, so one bad file leaves nothing half done.
 
-`pnv verify` checks that the YAML files are safe to publish, and needs a `.pnvrc` in the current directory or above it. It walks every `.yaml` and `.yml` file under the directory (default: the `.pnvrc` directory), skipping `.git`, `target`, `build`, `node_modules` and other build directories, and reports:
+`pnv verify` checks that the YAML files are safe to publish, and needs a `.pnvrc` in the current directory or above it. It checks every `.yaml` and `.yml` file under the directory (default: the `.pnvrc` directory), and every document in a file with several `---` documents. In a git repo that means the files git tracks or would track, so gitignored files are skipped; elsewhere it walks the directory, skipping `.git`, `target`, `build`, `node_modules` and other build directories. It reports:
 
 - a secret that does not decrypt with its flavor's key;
 - a value that looks like a secret but is not encrypted;

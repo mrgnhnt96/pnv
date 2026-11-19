@@ -158,8 +158,10 @@ checked before the key is looked for. `get` prints null as `null`. `show` prints
 secrets byte for byte, even invalid YAML, and writes nothing else to stdout or stderr.
 
 `pnv verify` needs a `.pnvrc` at or above the current directory, else it prints
-`No .pnvrc found. Run `pnv init` first.` and exits 1. It walks `.yaml`/`.yml` under the directory (default: the `.pnvrc` directory),
-skipping `.git`, `target`, `build`, `node_modules`, `.dart_tool`, and reports a secret that does not
+`No .pnvrc found. Run `pnv init` first.` and exits 1. It checks `.yaml`/`.yml` under the directory (default: the `.pnvrc` directory),
+every `---` document of each: in a git repo the files git tracks or would track
+(`git ls-files --cached --others --exclude-standard`), elsewhere a walk
+skipping `.git`, `target`, `build`, `node_modules`, `.dart_tool`. It reports a secret that does not
 decrypt with its flavor's key, a plaintext value that looks like a secret, and a key `storage`
 directory inside the project. A file needs a key only if it holds a secret.
 
