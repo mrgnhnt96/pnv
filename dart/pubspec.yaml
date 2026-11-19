@@ -1,5 +1,5 @@
 name: pnv
-version: 2.0.0
+version: 2.0.1
 description: A package to help with safely storing environment variables publicly
 repository: https://github.com/mrgnhnt96/pnv/tree/main/dart
 issue_tracker: https://github.com/mrgnhnt96/pnv/issues
