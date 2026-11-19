@@ -18,7 +18,6 @@ import 'package:pnv/src/pnv_exception.dart';
 import 'package:pnv/utils/constants.dart';
 import 'package:pointycastle/export.dart';
 import 'package:test/test.dart';
-import 'package:yaml/yaml.dart';
 
 /// Runs every case in `spec/vectors/` against this package, so a change in
 /// behavior that the spec does not describe fails here instead of surfacing
@@ -213,7 +212,7 @@ void main() {
           final source = c['yaml']! as String;
           final flagged = <String>[];
 
-          final leaves = SecretFileCommand.leaves(loadYaml(source) as YamlMap);
+          final leaves = SecretFileCommand.documentLeaves(source);
 
           for (final (path, node) in leaves) {
             final value = node.value;

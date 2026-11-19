@@ -357,8 +357,9 @@ A failed file produces no output at all.
 
 ### Which values are checked
 
-Every leaf of the file, at every depth, whose YAML value is a string not starting with `SECRET;`.
-Ints, floats, bools, nulls and sequences are never checked. The **key path** is the keys from the top
+Every leaf of every document in the file, at every depth, whose YAML value is a string not starting
+with `SECRET;`. A file may hold several `---` documents; one whose top level is not a mapping has no
+leaves. Ints, floats, bools, nulls and sequences are never checked. The **key path** is the keys from the top
 joined with `.`. The **comment** is found as in [YAML to `.env`](#yaml-to-env).
 
 ### The rule

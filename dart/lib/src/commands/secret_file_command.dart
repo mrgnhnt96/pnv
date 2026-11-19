@@ -85,6 +85,21 @@ abstract class SecretFileCommand extends CrypticCommand {
     return parts;
   }
 
+  /// The [leaves] of every document in [source] whose top level is a
+  /// mapping, in file order.
+  ///
+  /// A file may hold several documents separated by `---` (a CrowdSec
+  /// profiles file, say). Each one is read, so a secret in the second
+  /// document is not missed and the file is not rejected for being valid.
+  static List<(List<String> path, YamlNode node)> documentLeaves(
+    String source,
+  ) {
+    return [
+      for (final document in loadYamlStream(source).nodes)
+        if (document is YamlMap) ...leaves(document),
+    ];
+  }
+
   /// Every leaf in [map], as (dotted path, value).
   ///
   /// Used by anything that has to walk a whole file: rotate, verify, show.

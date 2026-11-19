@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io' as io;
 
 import 'package:file/file.dart';
+import 'package:file/local.dart';
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
@@ -174,6 +176,123 @@ void main() {
 
     expect(code, 1);
     expect(allErrors(), contains('two.local.yaml'));
+  });
+
+  group('a multi-document file', () {
+    test('passes when every document is clean', () async {
+      writeYaml(
+        'name: captcha_remediation\ndecisions:\n  - type: captcha\n'
+        '---\n'
+        'name: default_ip_remediation\non_success: break\n',
+      );
+
+      final code = await run(['verify', '--dir=$envs']);
+
+      expect(code, 0, reason: allErrors());
+      expect(allErrors(), isEmpty);
+    });
+
+    test('checks documents after the first', () async {
+      writeYaml(
+        'name: first\n'
+        '---\n'
+        'db:\n  password: hunter2hunter2\n',
+      );
+
+      final code = await run(['verify', '--dir=$envs']);
+
+      expect(code, 1);
+      expect(allErrors(), contains('db.password'));
+    });
+
+    test('decrypts secrets in every document', () async {
+      writeYaml('app:\n  api-key: replace\n');
+      await run(['set', 'app.api-key', 'a-real-secret', '--file=$yamlPath']);
+      final first = fs.file(yamlPath).readAsStringSync();
+      writeYaml('$first---\nother:\n  api-key: SECRET;v1:GARBAGE\n');
+
+      final code = await run(['verify', '--dir=$envs']);
+
+      expect(code, 1);
+      expect(allErrors(), contains('other.api-key'));
+      expect(allErrors(), isNot(contains('app.api-key')));
+    });
+  });
+
+  test('reports invalid YAML and checks the other files', () async {
+    writeYaml('a: [unclosed\n', path: p.join(envs, 'broken.local.yaml'));
+    writeYaml(
+      'app:\n  password: realsecretvalue\n',
+      path: p.join(envs, 'leak.local.yaml'),
+    );
+
+    final code = await run(['verify', '--dir=$envs']);
+
+    expect(code, 1);
+    expect(allErrors(), contains('broken.local.yaml: not valid YAML'));
+    expect(allErrors(), contains('leak.local.yaml'));
+  });
+
+  group('in a git repo', () {
+    late io.Directory repo;
+
+    setUp(() {
+      repo = io.Directory.systemTemp.createTempSync('pnv_verify_git_');
+      addTearDown(() => repo.deleteSync(recursive: true));
+
+      final init = io.Process.runSync(
+        'git',
+        ['init', '--quiet'],
+        workingDirectory: repo.path,
+      );
+      expect(init.exitCode, 0, reason: '${init.stderr}');
+
+      fs = const LocalFileSystem();
+      final cwd = fs.currentDirectory;
+      addTearDown(() => fs.currentDirectory = cwd);
+      fs.currentDirectory = repo.path;
+
+      void write(String path, String content) {
+        fs.file(p.join(repo.path, path))
+          ..createSync(recursive: true)
+          ..writeAsStringSync(content);
+      }
+
+      write('.gitignore', 'ignored/\n');
+      write('envs/app.yaml', 'name: demo\n');
+      write(
+        'ignored/copy/envs/app.yaml',
+        'db:\n  password: hunter2hunter2\n',
+      );
+    });
+
+    test('skips gitignored files', () async {
+      final code = await run(['verify', '--dir=${repo.path}']);
+
+      expect(code, 0, reason: allErrors());
+    });
+
+    test('checks untracked files git would track', () async {
+      fs
+          .file(p.join(repo.path, 'envs', 'new.yaml'))
+          .writeAsStringSync('db:\n  password: hunter2hunter2\n');
+
+      final code = await run(['verify', '--dir=${repo.path}']);
+
+      expect(code, 1);
+      expect(allErrors(), contains('new.yaml'));
+      expect(allErrors(), isNot(contains('ignored')));
+    });
+
+    test('only looks under the directory it was given', () async {
+      fs.file(p.join(repo.path, 'other', 'leak.yaml'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('db:\n  password: hunter2hunter2\n');
+
+      final code = await run(['verify', '--dir=${p.join(repo.path, 'envs')}']);
+
+      expect(code, 0, reason: allErrors());
+    });
   });
 }
 

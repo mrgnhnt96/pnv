@@ -395,6 +395,14 @@
       "flagged": [
         "api-key"
       ]
+    },
+    {
+      "name": "every document of a multi-document file is checked",
+      "note": "a file of several --- documents is valid YAML; each document's leaves are checked, so the second document's password is found",
+      "yaml": "name: default\ntoken: abc # plaintext\n---\nname: second\ndb:\n  password: hunter2hunter2\n---\n- a list document has no leaves\n",
+      "flagged": [
+        "db.password"
+      ]
     }
   ]
 }
